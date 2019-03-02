@@ -206,6 +206,7 @@ def decode_netout(netout, anchors, obj_thresh, net_h, net_w):
             # first 4 elements are x, y, w, and h
             x, y, w, h = netout[row,col,b,:4]
 
+            print("anchor" + str(anchors[2 * b + 0]) +" " +str(b) +" "+ str(nb_box) ) 
             x = (col + x) / grid_w # center position, unit: image width
             y = (row + y) / grid_h # center position, unit: image height
             w = anchors[2 * b + 0] * np.exp(w) / net_w # unit: image width
@@ -260,13 +261,17 @@ def get_yolo_boxes(model, images, net_h, net_w, anchors, obj_thresh, nms_thresh)
     for i in range(nb_images):
         if len(anchors) == 12 :
             yolos = [batch_output[0][i], batch_output[1][i]]
+            sc=1
+            ec=2
         else:
             yolos = [batch_output[0][i], batch_output[1][i], batch_output[2][i]]
+            sc=2
+            ec=3
         boxes = []
 
         # decode the output of the network
         for j in range(len(yolos)):
-            yolo_anchors = anchors[(2-j)*6:(3-j)*6] # config['model']['anchors']
+            yolo_anchors = anchors[(sc-j)*6:(ec-j)*6] # config['model']['anchors']
             boxes += decode_netout(yolos[j], yolo_anchors, obj_thresh, net_h, net_w)
 
         # correct the sizes of the bounding boxes

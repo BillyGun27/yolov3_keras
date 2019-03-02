@@ -56,6 +56,7 @@ def _main_(args):
     #ignore no training configuration
     #infer_model = load_model(config['train']['saved_weights_name'])
     infer_model = yolo_body(Input(shape=(None,None,3)), 3 , 20) #load_model(config['train']['saved_weights_name'])
+    #infer_model = tiny_yolo_body(Input(shape=(None,None,3)), 3 , 20)
     infer_model.load_weights(config['train']['saved_weights_name'])
 
     print("get mAp for All classes")
