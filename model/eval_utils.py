@@ -206,7 +206,7 @@ def decode_netout(netout, anchors, obj_thresh, net_h, net_w):
             # first 4 elements are x, y, w, and h
             x, y, w, h = netout[row,col,b,:4]
 
-            print("anchor" + str(anchors[2 * b + 0]) +" " +str(b) +" "+ str(nb_box) ) 
+            #print("anchor" + str(anchors[2 * b + 0]) +" " +str(b) +" "+ str(nb_box) ) 
             x = (col + x) / grid_w # center position, unit: image width
             y = (row + y) / grid_h # center position, unit: image height
             w = anchors[2 * b + 0] * np.exp(w) / net_w # unit: image width
