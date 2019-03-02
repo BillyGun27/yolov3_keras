@@ -178,7 +178,11 @@ def do_nms(boxes, nms_thresh):
 
 def decode_netout(netout, anchors, obj_thresh, net_h, net_w):
     grid_h, grid_w = netout.shape[:2]
-    nb_box = 3
+    if len(anchors) == 12 :
+        nb_box = 2
+    else:
+        nb_box = 3
+    
     netout = netout.reshape((grid_h, grid_w, nb_box, -1))
     nb_class = netout.shape[-1] - 5
 
