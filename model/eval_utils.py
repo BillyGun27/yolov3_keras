@@ -49,7 +49,7 @@ def evaluate(model,
         #print("generator = "+str(i) +" from " + str(generator.size()) )
         # make the boxes and the labels
         pred_boxes = get_yolo_boxes(model, raw_image, net_h, net_w, generator.get_anchors(), obj_thresh, nms_thresh)[0]
-
+        #print("generator anchor = "+str(generator.get_anchors()) )
         score = np.array([box.get_score() for box in pred_boxes])
         pred_labels = np.array([box.label for box in pred_boxes])        
         
@@ -254,7 +254,10 @@ def get_yolo_boxes(model, images, net_h, net_w, anchors, obj_thresh, nms_thresh)
     batch_boxes  = [None]*nb_images
 
     for i in range(nb_images):
-        yolos = [batch_output[0][i], batch_output[1][i], batch_output[2][i]]
+        if len(anchors) == 12 :
+            yolos = [batch_output[0][i], batch_output[1][i]]
+        else:
+            yolos = [batch_output[0][i], batch_output[1][i], batch_output[2][i]]
         boxes = []
 
         # decode the output of the network
