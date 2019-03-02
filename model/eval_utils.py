@@ -46,7 +46,7 @@ def evaluate(model,
 
     for i in range(generator.size()):
         raw_image = [generator.load_image(i)]
-        print("generator = "+str(i) +" from " + str(generator.size()) )
+        #print("generator = "+str(i) +" from " + str(generator.size()) )
         # make the boxes and the labels
         pred_boxes = get_yolo_boxes(model, raw_image, net_h, net_w, generator.get_anchors(), obj_thresh, nms_thresh)[0]
 
@@ -65,26 +65,26 @@ def evaluate(model,
         
         # copy detections to all_detections
         for label in range(generator.num_classes()):
-            print("copy detections to all_detections  label "+str(label) )
+            #print("copy detections to all_detections  label "+str(label) )
             all_detections[i][label] = pred_boxes[pred_labels == label, :]
 
         annotations = generator.load_annotation(i)
         
         # copy detections to all_annotations
         for label in range(generator.num_classes()):
-            print("copy detections to all_annotations  label "+str(label) )
+            #print("copy detections to all_annotations  label "+str(label) )
             all_annotations[i][label] = annotations[annotations[:, 4] == label, :4].copy()
 
     # compute mAP by comparing all detections and all annotations
     average_precisions = {}
-    
+    print("compute mAP")
     for label in range(generator.num_classes()):
         false_positives = np.zeros((0,))
         true_positives  = np.zeros((0,))
         scores          = np.zeros((0,))
         num_annotations = 0.0
 
-        print("get average precisions every label"+str(label) )
+        #print("get average precisions every label"+str(label) )
 
         for i in range(generator.size()):
             detections           = all_detections[i][label]
@@ -92,10 +92,10 @@ def evaluate(model,
             num_annotations     += annotations.shape[0]
             detected_annotations = []
 
-            print("group all detection "+str(generator) )
+            #print("group all detection "+str(generator) )
 
             for d in detections:
-                print("detection group"+str(d) )
+                #print("detection group"+str(d) )
                 scores = np.append(scores, d[4])
 
                 if annotations.shape[0] == 0:
