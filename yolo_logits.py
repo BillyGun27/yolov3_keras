@@ -13,17 +13,18 @@ from keras.models import Model
 from keras.optimizers import Adam
 from keras.callbacks import TensorBoard, ModelCheckpoint, ReduceLROnPlateau, EarlyStopping
 
-from yolo3.model import preprocess_true_boxes, yolo_body, tiny_yolo_body, yolo_loss
-from yolo3.utils import get_random_data
+from model.core import preprocess_true_boxes, yolo_loss
+from model.yolo3 import yolo_body, tiny_yolo_body
+from model.utils import get_random_data
 
 
 def _main():
     train_path = '2007_train.txt'
     val_path = '2007_val.txt'
-    test_path = '2007_test.txt'
+   # test_path = '2007_test.txt'
     log_dir = 'logs/000/'
-    classes_path = 'model_data/voc_classes.txt'
-    anchors_path = 'model_data/yolo_anchors.txt'
+    classes_path = 'class/voc_classes.txt'
+    anchors_path = 'anchors/yolo_anchors.txt'
     class_names = get_classes(classes_path)
     num_classes = len(class_names)
     anchors = get_anchors(anchors_path)
@@ -37,8 +38,8 @@ def _main():
     with open(val_path) as f:
         val_lines = f.readlines()
 
-    with open(test_path) as f:
-        test_lines = f.readlines()
+   # with open(test_path) as f:
+   #     test_lines = f.readlines()
     '''
     image_input = Input(shape=(416, 416, 3))
     model = yolo_body(image_input, num_anchors//3, num_classes)
@@ -59,37 +60,51 @@ def _main():
         loss='categorical_crossentropy', metrics=['accuracy']
     )
     '''
-    print( len(test_lines) )
-    batch_size = 3
     
-    trainX = {}
-    trainY = {}
+    batch_size = 16
+    
+    train_logits = {}
+    val_logits = {}
 
-
-    i = 0
-    for  img,dat in data_generator_wrapper(train_lines, batch_size, input_shape, anchors, num_classes) : 
+    print( "total "+ str(len(train_lines)) + " loop "+ str( len(train_lines)//batch_size +1 ) )
+    i = 0 #step
+    for  logits in data_generator_wrapper(train_lines, batch_size, input_shape, anchors, num_classes) : 
         #x , y = dat
-        trainX[i] = img
-        trainY[i] = dat
+        train_logits[i] = logits
+        #trainY[i] = dat
         #print(x.shape)
-        print(i)
+        #print(logits[0][0].shape)
+        #print( logits[1] )
+        #print( train_logits[0][0][1].shape)
+        #print( len( train_logits[0][1] ) )
+        #print(i)
         #print(img.shape)
         #print(dat)
         i+=1
-        if i>=5 :
+        if i>= (len(train_lines)//batch_size+1) :
+            break
+
+    print( "total "+ str(len(val_lines)) + " loop "+ str( len(val_lines)//batch_size +1 ) )
+    i = 0 #step
+    for  logits in data_generator_wrapper(val_lines, batch_size, input_shape, anchors, num_classes) : 
+        #x , y = dat
+        val_logits[i] = logits
+        i+=1
+        if i>= (len(val_lines)//batch_size+1) :
             break
     
 
-    np.save('trainx_logits.npy', trainX)
-    np.save('trainy_logits.npy', trainY)
+    np.save('train_logits.npy', train_logits)
+    np.save('val_logits.npy', val_logits)
 
-    train_logits = np.load('trainx_logits.npy')[()]
+    train_log = np.load('train_logits.npy')[()]
 
-    print(train_logits[1].shape)
+    print(train_log[0][0][0].shape)
+    print( len(train_log[0][1]) )
 
    # data_train_generator = ImageDataGenerator()
 
- #   test_generator = data_train_generator.flow(trainX, trainY, batch_size=batch_size), #data_generator_wrapper(train_lines, batch_size, input_shape, anchors, num_classes)
+    #   test_generator = data_train_generator.flow(trainX, trainY, batch_size=batch_size), #data_generator_wrapper(train_lines, batch_size, input_shape, anchors, num_classes)
 
   #  eva = model.evaluate_generator(test_generator, 80)
 
@@ -121,19 +136,13 @@ def data_generator(annotation_lines, batch_size, input_shape, anchors, num_class
             if i==0:
                 np.random.shuffle(annotation_lines)
             image, box = get_random_data(annotation_lines[i], input_shape, random=True)
-            #print("box shape")
-            #print(box.shape)
             image_data.append(image)
             box_data.append(box)
-            print("i"+str(i))
             i = (i+1) % n
         image_data = np.array(image_data)
         box_data = np.array(box_data)
         y_true = preprocess_true_boxes(box_data, input_shape, anchors, num_classes)
-        #print("y len")
-        #print(len(y_true))
-        #print(y_true[0].shape)
-        yield image_data, y_true
+        yield [image_data, *y_true], np.zeros(batch_size)
 
 def data_generator_wrapper(annotation_lines, batch_size, input_shape, anchors, num_classes):
     n = len(annotation_lines)
