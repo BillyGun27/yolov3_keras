@@ -174,25 +174,37 @@ def create_tiny_model(input_shape, anchors, num_classes, load_pretrained=True, f
 
 def data_generator(annotation_lines, batch_size, input_shape, anchors, num_classes):
     '''data generator for fit_generator'''
+
+    num_anchors = len(anchors)
+    image_input = Input(shape=(416, 416, 3))
+    model = yolo_body(image_input, num_anchors//3, num_classes)
+    model.load_weights("model_data/trained_weights_final.h5")
+
     n = len(annotation_lines)
     i = 0
     while True:
         image_data = []
         box_data = []
-        #for b in range(batch_size):
-        #    if i==0:
-        #        np.random.shuffle(annotation_lines)
-        #    image, box = get_random_data(annotation_lines[i], input_shape, random=True)
-        #    image_data.append(image)
-        #    box_data.append(box)
-        #    i = (i+1) % n
-        #image_data = np.array(image_data)
-        #box_data = np.array(box_data)
+        for b in range(batch_size):
+            if i==0:
+                np.random.shuffle(annotation_lines)
+            image, box = get_random_data(annotation_lines[i], input_shape, random=True)
+            image_data.append(image)
+            box_data.append(box)
+            i = (i+1) % n
+        image_data = np.array(image_data)
+        box_data = np.array(box_data)
         #y_true = preprocess_true_boxes(box_data, input_shape, anchors, num_classes)
-        data , zeros = annotation_lines[i]
-        i = (i+1) % n
+        y_true = model.predict(image_data)
+       # print("d")
+       # print(y_true[0].shape)
+       # print(y_true[1].shape)
+       # print(y_true[2].shape)
+        y_true[0] = y_true[0].reshape(y_true[0].shape[0], y_true[0].shape[1], y_true[0].shape[2], 3 , y_true[0].shape[3]//3 ) 
+        y_true[1] = y_true[1].reshape(y_true[1].shape[0], y_true[1].shape[1], y_true[1].shape[2], 3 , y_true[1].shape[3]//3 ) 
+        y_true[2] = y_true[2].reshape(y_true[2].shape[0], y_true[2].shape[1], y_true[2].shape[2], 3 , y_true[2].shape[3]//3 ) 
 
-        yield data , zeros #[image_data, *y_true], np.zeros(batch_size)
+        yield [image_data, *y_true], np.zeros(batch_size)
 
 def data_generator_wrapper(annotation_lines, batch_size, input_shape, anchors, num_classes):
     n = len(annotation_lines)
