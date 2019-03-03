@@ -17,8 +17,8 @@ from model.utils  import get_random_data
 import argparse
 
 def _main():
-   # train_path = '2007_train.txt'
-   # val_path = '2007_val.txt'
+    train_path = '2007_train.txt'
+    val_path = '2007_val.txt'
    # test_path = '2007_test.txt'
     log_dir = 'logs/000/'
     classes_path = 'class/voc_classes.txt'
@@ -43,17 +43,17 @@ def _main():
     reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=3, verbose=1)
     early_stopping = EarlyStopping(monitor='val_loss', min_delta=0, patience=10, verbose=1)
 
-    #with open(train_path) as f:
-    #    train_lines = f.readlines()
+    with open(train_path) as f:
+        train_lines = f.readlines()
 
-    #with open(val_path) as f:
-    #    val_lines = f.readlines()
+    with open(val_path) as f:
+        val_lines = f.readlines()
 
    # with open(test_path) as f:
    #     test_lines = f.readlines()
 
-    train_lines = np.load('train_logits.npy')[()]
-    val_lines = np.load('val_logits.npy')[()]
+    #train_lines = np.load('train_logits.npy')[()]
+    #val_lines = np.load('val_logits.npy')[()]
     num_val = int(len(train_lines))
     num_train = int(len(val_lines))
 
