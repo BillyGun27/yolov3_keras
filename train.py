@@ -20,8 +20,8 @@ def _main():
     val_path = '2007_val.txt'
    # test_path = '2007_test.txt'
     log_dir = 'logs/000/'
-    classes_path = 'model_data/voc_classes.txt'
-    anchors_path = 'model_data/tiny_yolo_anchors.txt'
+    classes_path = 'class/voc_classes.txt'
+    anchors_path = 'anchors/yolo_anchors.txt'
     class_names = get_classes(classes_path)
     num_classes = len(class_names)
     anchors = get_anchors(anchors_path)
