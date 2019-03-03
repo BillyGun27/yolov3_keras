@@ -4,6 +4,7 @@
 *.avi
 *.weights
 *.h5
+*.npy
 logs/
 *_test.py
 
