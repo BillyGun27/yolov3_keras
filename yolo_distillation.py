@@ -28,7 +28,7 @@ def _main():
     anchors = get_anchors(anchors_path)
 
     input_shape = (416,416) # multiple of 32, hw
-
+    
     is_tiny_version = len(anchors)==6 # default setting
     if is_tiny_version:
         model = create_tiny_model(input_shape, anchors, num_classes,
@@ -42,21 +42,22 @@ def _main():
         monitor='val_loss', save_weights_only=True, save_best_only=True, period=3)
     reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=3, verbose=1)
     early_stopping = EarlyStopping(monitor='val_loss', min_delta=0, patience=10, verbose=1)
+    
+  #  with open(train_path) as f:
+  #      train_lines = f.readlines()
 
-    with open(train_path) as f:
-        train_lines = f.readlines()
-
-    with open(val_path) as f:
-        val_lines = f.readlines()
+  #  with open(val_path) as f:
+  #      val_lines = f.readlines()
 
    # with open(test_path) as f:
    #     test_lines = f.readlines()
 
-    #train_lines = np.load('train_logits.npy')[()]
-    #val_lines = np.load('val_logits.npy')[()]
+    train_lines = np.load('train_logits.npy')[()]
+    val_lines = np.load('val_logits.npy')[()]
     num_val = int(len(train_lines))
     num_train = int(len(val_lines))
 
+   
     # Train with frozen layers first, to get a stable loss.
     # Adjust num epochs to your dataset. This step is enough to obtain a not bad model.
     if True:
@@ -67,9 +68,9 @@ def _main():
         batch_size = 16#32
         print('Train on {} samples, val on {} samples, with batch size {}.'.format(num_train, num_val, batch_size))
         model.fit_generator(data_generator_wrapper(train_lines, batch_size, input_shape, anchors, num_classes),
-                steps_per_epoch=max(1, num_train),
+                steps_per_epoch=max(1, num_train//batch_size),
                 validation_data=data_generator_wrapper(val_lines, batch_size, input_shape, anchors, num_classes),
-                validation_steps=max(1, num_val),
+                validation_steps=max(1, num_val//batch_size),
                 epochs=50,
                 initial_epoch=0,
                 callbacks=[logging, checkpoint])
@@ -175,36 +176,39 @@ def create_tiny_model(input_shape, anchors, num_classes, load_pretrained=True, f
 def data_generator(annotation_lines, batch_size, input_shape, anchors, num_classes):
     '''data generator for fit_generator'''
 
-    num_anchors = len(anchors)
-    image_input = Input(shape=(416, 416, 3))
-    model = yolo_body(image_input, num_anchors//3, num_classes)
-    model.load_weights("model_data/trained_weights_final.h5")
+   # num_anchors = len(anchors)
+    #image_input = Input(shape=(416, 416, 3))
+   # model = yolo_body(image_input, num_anchors//3, num_classes)
+   #model.load_weights("model_data/trained_weights_final.h5")
 
     n = len(annotation_lines)
     i = 0
     while True:
         image_data = []
-        box_data = []
+        bbox_data = []
+        mbox_data = []
+        sbox_data = []
         for b in range(batch_size):
             if i==0:
                 np.random.shuffle(annotation_lines)
-            image, box = get_random_data(annotation_lines[i], input_shape, random=True)
+           # print(i)
+           # print(annotation_lines[i][0].shape)
+           # print(annotation_lines[i][1].shape)
+            image, bbox , mbox ,sbox =  annotation_lines[i][0] , annotation_lines[i][1] , annotation_lines[i][2] , annotation_lines[i][3]  #get_random_data(annotation_lines[i], input_shape, random=True)
             image_data.append(image)
-            box_data.append(box)
+            bbox_data.append(bbox)
+            mbox_data.append(mbox)
+            sbox_data.append(sbox)
             i = (i+1) % n
-        image_data = np.array(image_data)
-        box_data = np.array(box_data)
+        image_data = np.vstack(image_data)
+        bbox_data = np.vstack(bbox_data)
+        mbox_data = np.vstack(mbox_data)
+        sbox_data = np.vstack(sbox_data)
         #y_true = preprocess_true_boxes(box_data, input_shape, anchors, num_classes)
-        y_true = model.predict(image_data)
-       # print("d")
-       # print(y_true[0].shape)
-       # print(y_true[1].shape)
-       # print(y_true[2].shape)
-        y_true[0] = y_true[0].reshape(y_true[0].shape[0], y_true[0].shape[1], y_true[0].shape[2], 3 , y_true[0].shape[3]//3 ) 
-        y_true[1] = y_true[1].reshape(y_true[1].shape[0], y_true[1].shape[1], y_true[1].shape[2], 3 , y_true[1].shape[3]//3 ) 
-        y_true[2] = y_true[2].reshape(y_true[2].shape[0], y_true[2].shape[1], y_true[2].shape[2], 3 , y_true[2].shape[3]//3 ) 
-
-        yield [image_data, *y_true], np.zeros(batch_size)
+        #y_true = model.predict(image_data)
+      
+        
+        yield [image_data, bbox_data,  mbox_data , sbox_data], np.zeros(batch_size)
 
 def data_generator_wrapper(annotation_lines, batch_size, input_shape, anchors, num_classes):
     n = len(annotation_lines)

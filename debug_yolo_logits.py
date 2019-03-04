@@ -72,21 +72,36 @@ def _main():
     for  logits in data_generator_wrapper(train_lines, batch_size, input_shape, anchors, num_classes) : 
         #x , y = dat
         train_logits[i] = logits
-        
+        print(logits[0].shape)
+        logits_box.append(logits[0])
+        #trainY[i] = dat
+        #print(x.shape)
+        #print(logits[1].shape)
+        #print(logits[2].shape)
+        #print( logits[1] )
+        #print( train_logits[0][0][1].shape)
+        #print( len( train_logits[0][1] ) )
+        #print(i)
+        #print(img.shape)
+        #print(dat)
         i+=1
-        if i>= (len(train_lines)) :
+        if i>= 3:#(len(train_lines)//batch_size+1) :
             break
-    
-
-   # print(train_logits[0][1].shape)
-
+    #print(logits_box.shape)
+    logits_box = np.vstack(logits_box)
+   # logits_box = logits_box.reshape(-1,logits_box.shape[1],logits_box.shape[2],logits_box.shape[3])#
+    print(logits_box.shape)
+    #logits_box = logits_box.reshape(-1,logits_box.shape[-1])
+    #print(logits_box[0].shape)
+    #print(logits_box[1].shape)
+'''
     print( "total "+ str(len(val_lines)) + " loop "+ str( len(val_lines)//batch_size +1 ) )
     i = 0 #step
     for  logits in data_generator_wrapper(val_lines, batch_size, input_shape, anchors, num_classes) : 
         #x , y = dat
         val_logits[i] = logits
         i+=1
-        if i>= (len(val_lines)) :
+        if i>= (len(val_lines)//batch_size+1) :
             break
     
 
@@ -95,9 +110,16 @@ def _main():
 
     train_log = np.load('train_logits.npy')[()]
 
-    print(train_log[0][0].shape)
-    print(train_log[1][0].shape)
+    print(train_log[0][0][0].shape)
+    print( len(train_log[0][1]) )
+'''
+   # data_train_generator = ImageDataGenerator()
 
+    #   test_generator = data_train_generator.flow(trainX, trainY, batch_size=batch_size), #data_generator_wrapper(train_lines, batch_size, input_shape, anchors, num_classes)
+
+  #  eva = model.evaluate_generator(test_generator, 80)
+
+   # print(eva)
 
 def get_classes(classes_path):
     '''loads the classes'''
@@ -121,13 +143,6 @@ def data_generator(annotation_lines, batch_size, input_shape, anchors, num_class
     image_input = Input(shape=(416, 416, 3))
     model = yolo_body(image_input, num_anchors//3, num_classes)
     model.load_weights("model_data/trained_weights_final.h5")
-    
-    yolo3 = Reshape((13, 13, 3, 25))(model.layers[-3].output)
-    yolo2 = Reshape((26, 26, 3, 25))(model.layers[-2].output)
-    yolo1 = Reshape((52, 52, 3, 25))(model.layers[-1].output)
-    
-
-    model = Model( input= model.input , output=[yolo3,yolo2,yolo1] )
 
     n = len(annotation_lines)
     i = 0
@@ -142,7 +157,7 @@ def data_generator(annotation_lines, batch_size, input_shape, anchors, num_class
             box_data.append(box)
             i = (i+1) % n
         image_data = np.array(image_data)
-        #box_data = np.array(box_data)
+        box_data = np.array(box_data)
         #y_true = preprocess_true_boxes(box_data, input_shape, anchors, num_classes)
        # print(image_data.shape)
         y_true = model.predict(image_data)
