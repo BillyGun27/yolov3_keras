@@ -43,6 +43,11 @@ def _main():
     reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=3, verbose=1)
     early_stopping = EarlyStopping(monitor='val_loss', min_delta=0, patience=10, verbose=1)
 
+    num_anchors = len(anchors)
+    image_input = Input(shape=(416, 416, 3))
+    teacher = yolo_body(image_input, num_anchors//3, num_classes)
+    teacher.load_weights("model_data/trained_weights_final.h5")
+
     with open(train_path) as f:
         train_lines = f.readlines()
 
@@ -66,9 +71,9 @@ def _main():
 
         batch_size = 16#32
         print('Train on {} samples, val on {} samples, with batch size {}.'.format(num_train, num_val, batch_size))
-        model.fit_generator(data_generator_wrapper(train_lines, batch_size, input_shape, anchors, num_classes),
+        model.fit_generator(data_generator_wrapper(train_lines, batch_size, input_shape, anchors, num_classes,teacher),
                 steps_per_epoch=max(1, num_train),
-                validation_data=data_generator_wrapper(val_lines, batch_size, input_shape, anchors, num_classes),
+                validation_data=data_generator_wrapper(val_lines, batch_size, input_shape, anchors, num_classes,teacher),
                 validation_steps=max(1, num_val),
                 epochs=50,
                 initial_epoch=0,
@@ -85,9 +90,9 @@ def _main():
 
         batch_size =  16#32 note that more GPU memory is required after unfreezing the body
         print('Train on {} samples, val on {} samples, with batch size {}.'.format(num_train, num_val, batch_size))
-        model.fit_generator(data_generator_wrapper(train_lines, batch_size, input_shape, anchors, num_classes),
+        model.fit_generator(data_generator_wrapper(train_lines, batch_size, input_shape, anchors, num_classes,teacher),
             steps_per_epoch=max(1, num_train//batch_size),
-            validation_data=data_generator_wrapper(val_lines, batch_size, input_shape, anchors, num_classes),
+            validation_data=data_generator_wrapper(val_lines, batch_size, input_shape, anchors, num_classes,teacher),
             validation_steps=max(1, num_val//batch_size),
             epochs=100,
             initial_epoch=50,
@@ -172,13 +177,8 @@ def create_tiny_model(input_shape, anchors, num_classes, load_pretrained=True, f
 
     return model
 
-def data_generator(annotation_lines, batch_size, input_shape, anchors, num_classes):
+def data_generator(annotation_lines, batch_size, input_shape, anchors, num_classes,teacher):
     '''data generator for fit_generator'''
-
-    num_anchors = len(anchors)
-    image_input = Input(shape=(416, 416, 3))
-    model = yolo_body(image_input, num_anchors//3, num_classes)
-    model.load_weights("model_data/trained_weights_final.h5")
 
     n = len(annotation_lines)
     i = 0
@@ -195,7 +195,7 @@ def data_generator(annotation_lines, batch_size, input_shape, anchors, num_class
         image_data = np.array(image_data)
         box_data = np.array(box_data)
         #y_true = preprocess_true_boxes(box_data, input_shape, anchors, num_classes)
-        y_true = model.predict(image_data)
+        y_true = teacher.predict(image_data)
        # print("d")
        # print(y_true[0].shape)
        # print(y_true[1].shape)
@@ -206,7 +206,7 @@ def data_generator(annotation_lines, batch_size, input_shape, anchors, num_class
 
         yield [image_data, *y_true], np.zeros(batch_size)
 
-def data_generator_wrapper(annotation_lines, batch_size, input_shape, anchors, num_classes):
+def data_generator_wrapper(annotation_lines, batch_size, input_shape, anchors, num_classes,teacher):
     n = len(annotation_lines)
     if n==0 or batch_size<=0: return None
     return data_generator(annotation_lines, batch_size, input_shape, anchors, num_classes)
