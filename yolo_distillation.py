@@ -55,8 +55,8 @@ def _main():
 
     train_lines =  h5py.File('train_logits.h5','r') #np.load('train_logits.npy')[()]
     val_lines = h5py.File('val_logits.h5','r') #np.load('val_logits.npy')[()]
-    num_val = int(len(train_lines))
-    num_train = int(len(val_lines))
+    num_train = int(len(train_lines["img_data"]))
+    num_val = int(len(val_lines["img_data"]))
 
    
     # Train with frozen layers first, to get a stable loss.
