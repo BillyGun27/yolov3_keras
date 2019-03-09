@@ -43,7 +43,7 @@ def _main():
 
    # with open(test_path) as f:
    #     test_lines = f.readlines()
-
+    '''
     num_anchors = len(anchors)
     image_input = Input(shape=(416, 416, 3))
     model = yolo_body(image_input, num_anchors//3, num_classes)
@@ -55,7 +55,8 @@ def _main():
     
 
     model = Model( inputs= model.input , outputs=[yolo3,yolo2,yolo1] )
-    
+    '''
+
     batch_size = 1
     
     print( "total "+ str(len(train_lines)) + " loop "+ str( len(train_lines) ) )
