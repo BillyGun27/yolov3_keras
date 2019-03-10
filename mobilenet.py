@@ -22,7 +22,7 @@ from keras.utils import multi_gpu_model
 
 class YOLO(object):
     _defaults = {
-        "model_path": "model_data/trained_distillation_weights_final_mobilenet_v2.h5",#'model_data/trained_weights_final_mobilenetv2.h5',#yolo.h5
+        "model_path": "model_data/trained_distillation_weights_final_mobilenet_v2fake.h5",#'model_data/trained_weights_final_mobilenetv2.h5',#yolo.h5
         "anchors_path": 'anchors/yolo_anchors.txt',#yolo_anchors.txt
         "classes_path": 'class/voc_classes.txt',#coco_classes.txt
         "score" : 0.3,

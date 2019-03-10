@@ -95,6 +95,7 @@ def yolo_eval(yolo_outputs,
     boxes = []
     box_scores = []
     for l in range(num_layers):
+        print(yolo_outputs[l].shape)
         _boxes, _box_scores = yolo_boxes_and_scores(yolo_outputs[l],
             anchors[anchor_mask[l]], num_classes, input_shape, image_shape)
         boxes.append(_boxes)

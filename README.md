@@ -16,3 +16,6 @@ For VOC dataset, try `python voc_annotation.py`
 `python train.py --classes class_file test_data/akiha.mp4 -model model_file --anchors anchor_file`
 
 `python evaluate.py -c eval_config.json`
+
+
+tensorboard --logdir=logs/000
