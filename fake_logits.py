@@ -72,7 +72,7 @@ def _main():
 
         # fill the 10 frames with a random image
         i = 0
-        for logits in tqdm( data_generator_wrapper(train_lines[:1500], batch_size, input_shape, anchors, num_classes) ) : 
+        for logits in tqdm( data_generator_wrapper(train_lines , batch_size, input_shape, anchors, num_classes) ) : 
             #print(logits[0][0])
             #print(logits[0][0].shape)
             #trat = logits[0][0]
@@ -87,7 +87,7 @@ def _main():
             sbox[i] = logits[3][0]
         
             i+=1
-            if i>= 1500:#train_size:#(len(train_lines)) :
+            if i>= train_size:#(len(train_lines)) :
                 break
 
 
@@ -136,7 +136,7 @@ def _main():
             sbox[i] = logits[3][0]
         
             i+=1
-            if i>= 500:#val_size:#(len(val_lines)) :
+            if i>= val_size:#(len(val_lines)) :
                 break
 
 '''
@@ -215,7 +215,7 @@ def data_generator(annotation_lines, batch_size, input_shape, anchors, num_class
         image_data = np.array(image_data)
         box_data = np.array(box_data)
         y_true = preprocess_true_boxes(box_data, input_shape, anchors, num_classes)
-        yield [image_data, *y_true], np.zeros(batch_size)
+        yield [image_data, *y_true]#, np.zeros(batch_size)
 
 def data_generator_wrapper(annotation_lines, batch_size, input_shape, anchors, num_classes):
     n = len(annotation_lines)

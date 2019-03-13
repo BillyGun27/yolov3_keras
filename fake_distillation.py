@@ -53,8 +53,8 @@ def _main():
    # with open(test_path) as f:
    #     test_lines = f.readlines()
 
-    train_lines =  h5py.File('train_logits.h5','r') #np.load('train_logits.npy')[()]
-    val_lines = h5py.File('val_logits.h5','r') #np.load('val_logits.npy')[()]
+    train_lines =  h5py.File('train_fake_logits.h5','r') #np.load('train_logits.npy')[()]
+    val_lines = h5py.File('val_fake_logits.h5','r') #np.load('val_logits.npy')[()]
     num_train = int(len(train_lines["img_data"]))
     num_val = int(len(val_lines["img_data"]))
 
