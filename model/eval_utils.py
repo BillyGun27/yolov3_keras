@@ -3,6 +3,7 @@ import numpy as np
 import os
 from model.eval_bbox import BoundBox, bbox_iou
 from scipy.special import expit
+from tqdm import tqdm
 
 def _sigmoid(x):
     return expit(x)
@@ -44,7 +45,7 @@ def evaluate(model,
 
     print("Gather detections "+ str(generator.size()))
 
-    for i in range(generator.size()):
+    for i in tqdm( range(generator.size()) ):
         raw_image = [generator.load_image(i)]
         #print("generator = "+str(i) +" from " + str(generator.size()) )
         # make the boxes and the labels
@@ -78,7 +79,7 @@ def evaluate(model,
     # compute mAP by comparing all detections and all annotations
     average_precisions = {}
     print("compute mAP")
-    for label in range(generator.num_classes()):
+    for label in tqdm( range(generator.num_classes()) ):
         false_positives = np.zeros((0,))
         true_positives  = np.zeros((0,))
         scores          = np.zeros((0,))

@@ -62,7 +62,7 @@ def _main():
     print( "total "+ str(len(train_lines)) + " loop "+ str( len(train_lines) ) )
 
         # create an hdf5 file
-    train_size = len(train_lines)
+    train_size = 1000#len(train_lines)
     with h5py.File("train_fake_logits.h5",'w') as f:
         # create a dataset for your movie
         img = f.create_dataset("img_data", shape=(  train_size, 416, 416, 3)) #len(train_lines)
@@ -72,7 +72,7 @@ def _main():
 
         # fill the 10 frames with a random image
         i = 0
-        for logits in tqdm( data_generator_wrapper(train_lines[:1500], batch_size, input_shape, anchors, num_classes) ) : 
+        for logits in tqdm( data_generator_wrapper(train_lines, batch_size, input_shape, anchors, num_classes) ) : 
             #print(logits[0][0])
             #print(logits[0][0].shape)
             #trat = logits[0][0]
@@ -87,7 +87,7 @@ def _main():
             sbox[i] = logits[3][0]
         
             i+=1
-            if i>= 1500:#train_size:#(len(train_lines)) :
+            if i>= train_size:#(len(train_lines)) :
                 break
 
 
@@ -118,7 +118,7 @@ def _main():
     #train_logits = np.array(train_logits)
     #print(train_logits.shape)
 
-    val_size = len(val_lines)
+    val_size = 500#len(val_lines)
     with h5py.File("val_fake_logits.h5",'w') as f:
         # create a dataset for your movie
         img = f.create_dataset("img_data", shape=(  val_size, 416, 416, 3)) #
@@ -128,7 +128,7 @@ def _main():
 
         # fill the 10 frames with a random image
         i = 0
-        for logits in tqdm( data_generator_wrapper(val_lines[:500], batch_size, input_shape, anchors, num_classes) ) : 
+        for logits in tqdm( data_generator_wrapper(val_lines, batch_size, input_shape, anchors, num_classes) ) : 
 
             img[i] = logits[0][0] # np.random.randint(255, size=(416, 416, 3)) #        
             bbox[i] = logits[1][0]
@@ -136,7 +136,7 @@ def _main():
             sbox[i] = logits[3][0]
         
             i+=1
-            if i>= 500:#val_size:#(len(val_lines)) :
+            if i>= val_size:#(len(val_lines)) :
                 break
 
 '''
@@ -215,7 +215,7 @@ def data_generator(annotation_lines, batch_size, input_shape, anchors, num_class
         image_data = np.array(image_data)
         box_data = np.array(box_data)
         y_true = preprocess_true_boxes(box_data, input_shape, anchors, num_classes)
-        yield [image_data, *y_true], np.zeros(batch_size)
+        yield [image_data, *y_true]#, np.zeros(batch_size)
 
 def data_generator_wrapper(annotation_lines, batch_size, input_shape, anchors, num_classes):
     n = len(annotation_lines)

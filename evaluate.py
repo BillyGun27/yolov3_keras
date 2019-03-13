@@ -11,6 +11,7 @@ from keras.callbacks import EarlyStopping, ModelCheckpoint
 from keras.optimizers import Adam
 from keras.models import load_model
 from model.yolo3 import yolo_body, tiny_yolo_body
+from model.mobilenet import mobilenetv2_yolo_body
 from keras.layers import Input
 
 def _main_(args):
@@ -59,6 +60,7 @@ def _main_(args):
     #infer_model = tiny_yolo_body(Input(shape=(None,None,3)), 3 , 20)
     infer_model.load_weights(config['train']['saved_weights_name'])
 
+    print(config['train']['saved_weights_name'])
     print("get mAp for All classes")
     # compute mAP for all the classes
     average_precisions = evaluate(infer_model, valid_generator)
