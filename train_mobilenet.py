@@ -4,15 +4,13 @@ Retrain the YOLO model for your own dataset.
 
 import numpy as np
 import keras.backend as K
-import h5py
 from keras.layers import Input, Lambda
 from keras.models import Model
 from keras.optimizers import Adam
 from keras.callbacks import TensorBoard, ModelCheckpoint, ReduceLROnPlateau, EarlyStopping
 
 from model.core import preprocess_true_boxes, yolo_loss
-from model.mobilenet import yolo_body
-from model.yolo3 import  tiny_yolo_body
+from model.yolo3 import yolo_body, tiny_yolo_body
 from model.utils  import get_random_data
 
 import argparse
@@ -29,37 +27,33 @@ def _main():
     anchors = get_anchors(anchors_path)
 
     input_shape = (416,416) # multiple of 32, hw
-    
+
     is_tiny_version = len(anchors)==6 # default setting
     if is_tiny_version:
         model = create_tiny_model(input_shape, anchors, num_classes,
             freeze_body=2, weights_path='model_data/tiny_yolo_weights.h5')
     else:
         model = create_model(input_shape, anchors, num_classes,
-            freeze_body=2, weights_path='model_data/trained_weights_final_mobilenetv2.h5') # make sure you know what you freeze
+            freeze_body=2, weights_path='model_data/trained_weights_final_mobilenet_v2.h5') # make sure you know what you freeze
 
     logging = TensorBoard(log_dir=log_dir)
     checkpoint = ModelCheckpoint(log_dir + 'ep{epoch:03d}-loss{loss:.3f}-val_loss{val_loss:.3f}.h5',
         monitor='val_loss', save_weights_only=True, save_best_only=True, period=3)
     reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=3, verbose=1)
     early_stopping = EarlyStopping(monitor='val_loss', min_delta=0, patience=10, verbose=1)
-    
-  #  with open(train_path) as f:
-  #      train_lines = f.readlines()
 
-  #  with open(val_path) as f:
-  #      val_lines = f.readlines()
+    with open(train_path) as f:
+        train_lines = f.readlines()
+
+    with open(val_path) as f:
+        val_lines = f.readlines()
 
    # with open(test_path) as f:
    #     test_lines = f.readlines()
 
-    train_lines =  h5py.File('train_fake_logits.h5','r') #np.load('train_logits.npy')[()]
-    val_lines = h5py.File('val_fake_logits.h5','r') #np.load('val_logits.npy')[()]
-    num_train = int(len(train_lines["img_data"]))
-    num_val = int(len(val_lines["img_data"]))
+    num_val = int(len(train_lines))
+    num_train = int(len(val_lines))
 
-
-   
     # Train with frozen layers first, to get a stable loss.
     # Adjust num epochs to your dataset. This step is enough to obtain a not bad model.
     if True:
@@ -67,7 +61,7 @@ def _main():
             # use custom yolo_loss Lambda layer.
             'yolo_loss': lambda y_true, y_pred: y_pred})
 
-        batch_size = 5#32
+        batch_size = 16#32
         print('Train on {} samples, val on {} samples, with batch size {}.'.format(num_train, num_val, batch_size))
         model.fit_generator(data_generator_wrapper(train_lines, batch_size, input_shape, anchors, num_classes),
                 steps_per_epoch=max(1, num_train//batch_size),
@@ -76,7 +70,7 @@ def _main():
                 epochs=50,
                 initial_epoch=0,
                 callbacks=[logging, checkpoint])
-        model.save_weights(log_dir + 'fake_trained_distillation_weights_stage_1_mobilenet_v2.h5')
+        model.save_weights(log_dir + 'trained_weights_stage_1_mobilenet.h5')
 
     # Unfreeze and continue training, to fine-tune.
     # Train longer if the result is not good.
@@ -86,7 +80,7 @@ def _main():
         model.compile(optimizer=Adam(lr=1e-4), loss={'yolo_loss': lambda y_true, y_pred: y_pred}) # recompile to apply the change
         print('Unfreeze all of the layers.')
 
-        batch_size =  2#32 note that more GPU memory is required after unfreezing the body
+        batch_size =  8#32 note that more GPU memory is required after unfreezing the body
         print('Train on {} samples, val on {} samples, with batch size {}.'.format(num_train, num_val, batch_size))
         model.fit_generator(data_generator_wrapper(train_lines, batch_size, input_shape, anchors, num_classes),
             steps_per_epoch=max(1, num_train//batch_size),
@@ -95,7 +89,7 @@ def _main():
             epochs=100,
             initial_epoch=50,
             callbacks=[logging, checkpoint, reduce_lr, early_stopping])
-        model.save_weights(log_dir + 'fake_trained_distillation_weights_final_mobilenet_v2.h5')
+        model.save_weights(log_dir + 'trained_weights_final_mobilenet.h5')
 
     # Further training if needed.
 
@@ -177,38 +171,21 @@ def create_tiny_model(input_shape, anchors, num_classes, load_pretrained=True, f
 
 def data_generator(annotation_lines, batch_size, input_shape, anchors, num_classes):
     '''data generator for fit_generator'''
-
-
     n = len(annotation_lines)
     i = 0
     while True:
         image_data = []
-        y_true = []
-        bbox_data = []
-        mbox_data = []
-        sbox_data = []
+        box_data = []
         for b in range(batch_size):
-            #if i==0:
-                #np.random.shuffle(annotation_lines)
-           # print(i)
-           # print(annotation_lines[i][0].shape)
-           # print(annotation_lines[i][1].shape)
-            image, bbox , mbox ,sbox =  annotation_lines["img_data"][i] , annotation_lines["big_logits"][i] , annotation_lines["medium_logits"][i] , annotation_lines["small_logits"][i]  #get_random_data(annotation_lines[i], input_shape, random=True)
+            if i==0:
+                np.random.shuffle(annotation_lines)
+            image, box = get_random_data(annotation_lines[i], input_shape, random=True)
             image_data.append(image)
-            bbox_data.append(bbox)
-            mbox_data.append(mbox)
-            sbox_data.append(sbox)
+            box_data.append(box)
             i = (i+1) % n
         image_data = np.array(image_data)
-        bbox_data = np.array(bbox_data)
-        mbox_data = np.array(mbox_data)
-        sbox_data = np.array(sbox_data)
-        y_true.append(bbox_data)
-        y_true.append(mbox_data)
-        y_true.append(sbox_data)
-        #y_true = preprocess_true_boxes(box_data, input_shape, anchors, num_classes)
-        #y_true = model.predict(image_data)
-      
+        box_data = np.array(box_data)
+        y_true = preprocess_true_boxes(box_data, input_shape, anchors, num_classes)
         yield [image_data, *y_true], np.zeros(batch_size)
 
 def data_generator_wrapper(annotation_lines, batch_size, input_shape, anchors, num_classes):
