@@ -39,11 +39,7 @@ def _main():
             freeze_body=2, weights_path='model_data/trained_weights_final_mobilenetv2.h5') # make sure you know what you freeze
 
     logging = TensorBoard(log_dir=log_dir)
-<<<<<<< HEAD
     checkpoint = ModelCheckpoint(log_dir + 'fakeep{epoch:03d}-loss{loss:.3f}-val_loss{val_loss:.3f}.h5',
-=======
-    checkpoint = ModelCheckpoint(log_dir + 'ep{epoch:03d}-loss{loss:.3f}-val_loss{val_loss:.3f}.h5',
->>>>>>> c289965073a81709ec47a3bc89d46449809593c2
         monitor='val_loss', save_weights_only=True, save_best_only=True, period=3)
     reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=3, verbose=1)
     early_stopping = EarlyStopping(monitor='val_loss', min_delta=0, patience=10, verbose=1)
@@ -62,10 +58,6 @@ def _main():
     num_train = int(len(train_lines["img_data"]))
     num_val = int(len(val_lines["img_data"]))
 
-<<<<<<< HEAD
-=======
-
->>>>>>> c289965073a81709ec47a3bc89d46449809593c2
    
     # Train with frozen layers first, to get a stable loss.
     # Adjust num epochs to your dataset. This step is enough to obtain a not bad model.
@@ -74,11 +66,7 @@ def _main():
             # use custom yolo_loss Lambda layer.
             'yolo_loss': lambda y_true, y_pred: y_pred})
 
-<<<<<<< HEAD
         batch_size = 16#32
-=======
-        batch_size = 5#32
->>>>>>> c289965073a81709ec47a3bc89d46449809593c2
         print('Train on {} samples, val on {} samples, with batch size {}.'.format(num_train, num_val, batch_size))
         model.fit_generator(data_generator_wrapper(train_lines, batch_size, input_shape, anchors, num_classes),
                 steps_per_epoch=max(1, num_train//batch_size),
@@ -87,11 +75,7 @@ def _main():
                 epochs=50,
                 initial_epoch=0,
                 callbacks=[logging, checkpoint])
-<<<<<<< HEAD
-        model.save_weights(log_dir + 'trained_distillation_weights_stage_1_mobilenet_v2fake.h5')
-=======
         model.save_weights(log_dir + 'fake_trained_distillation_weights_stage_1_mobilenet_v2.h5')
->>>>>>> c289965073a81709ec47a3bc89d46449809593c2
 
     # Unfreeze and continue training, to fine-tune.
     # Train longer if the result is not good.
@@ -101,11 +85,7 @@ def _main():
         model.compile(optimizer=Adam(lr=1e-4), loss={'yolo_loss': lambda y_true, y_pred: y_pred}) # recompile to apply the change
         print('Unfreeze all of the layers.')
 
-<<<<<<< HEAD
-        batch_size =  16#32 note that more GPU memory is required after unfreezing the body
-=======
         batch_size =  2#32 note that more GPU memory is required after unfreezing the body
->>>>>>> c289965073a81709ec47a3bc89d46449809593c2
         print('Train on {} samples, val on {} samples, with batch size {}.'.format(num_train, num_val, batch_size))
         model.fit_generator(data_generator_wrapper(train_lines, batch_size, input_shape, anchors, num_classes),
             steps_per_epoch=max(1, num_train//batch_size),
@@ -114,11 +94,7 @@ def _main():
             epochs=100,
             initial_epoch=50,
             callbacks=[logging, checkpoint, reduce_lr, early_stopping])
-<<<<<<< HEAD
-        model.save_weights(log_dir + 'trained_distillation_weights_final_mobilenet_v2fake.h5')
-=======
         model.save_weights(log_dir + 'fake_trained_distillation_weights_final_mobilenet_v2.h5')
->>>>>>> c289965073a81709ec47a3bc89d46449809593c2
 
     # Further training if needed.
 

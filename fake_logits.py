@@ -62,11 +62,7 @@ def _main():
     print( "total "+ str(len(train_lines)) + " loop "+ str( len(train_lines) ) )
 
         # create an hdf5 file
-<<<<<<< HEAD
-    train_size = 1000#len(train_lines)
-=======
     train_size = 10#len(train_lines)
->>>>>>> c289965073a81709ec47a3bc89d46449809593c2
     with h5py.File("train_fake_logits.h5",'w') as f:
         # create a dataset for your movie
         img = f.create_dataset("img_data", shape=(  train_size, 416, 416, 3)) #len(train_lines)
@@ -76,11 +72,7 @@ def _main():
 
         # fill the 10 frames with a random image
         i = 0
-<<<<<<< HEAD
-        for logits in tqdm( data_generator_wrapper(train_lines, batch_size, input_shape, anchors, num_classes) ) : 
-=======
         for logits in tqdm( data_generator_wrapper(train_lines , batch_size, input_shape, anchors, num_classes) ) : 
->>>>>>> c289965073a81709ec47a3bc89d46449809593c2
             #print(logits[0][0])
             #print(logits[0][0].shape)
             #trat = logits[0][0]
@@ -128,11 +120,7 @@ def _main():
     #train_logits = np.array(train_logits)
     #print(train_logits.shape)
 
-<<<<<<< HEAD
-    val_size = 500#len(val_lines)
-=======
     val_size = 10#len(val_lines)
->>>>>>> c289965073a81709ec47a3bc89d46449809593c2
     with h5py.File("val_fake_logits.h5",'w') as f:
         # create a dataset for your movie
         img = f.create_dataset("img_data", shape=(  val_size, 416, 416, 3)) #

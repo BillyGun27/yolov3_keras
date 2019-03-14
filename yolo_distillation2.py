@@ -29,13 +29,6 @@ def _main():
     anchors = get_anchors(anchors_path)
 
     input_shape = (416,416) # multiple of 32, hw
-
-    sess = tf.Session()
-    K.set_session(sess)
-
-    # Initialize all variables
-    init_op = tf.global_variables_initializer()
-    sess.run(init_op)
     
   
     is_tiny_version = len(anchors)==6 # default setting
@@ -79,14 +72,17 @@ def _main():
     yolo1 = Reshape((52, 52, 3, 25))(teacher.layers[-1].output)
     
     teacher = Model( inputs= teacher.input , outputs=[yolo3,yolo2,yolo1] )
+    teacher._make_predict_function()
+
     
     batch_size = 2
     i = 0 #step
-    for  logits in data_generator_wrapper(train_lines, batch_size, input_shape, anchors, num_classes,teacher,sess) : 
+    for  logits in data_generator_wrapper(train_lines, batch_size, input_shape, anchors, num_classes,teacher) : 
         #x , y = dat
         #train_logits[i] = logits
         #trainY[i] = dat
         #print(x.shape)
+        print(logits[0][1])
         print(logits[0][0].shape)
         print(logits[0][1].shape)
         #print(logits[0][1])
@@ -99,8 +95,7 @@ def _main():
         i+=1
         if i>= 3:#(len(train_lines)//batch_size+1) :
             break
-    
-'''
+    '''   
     # Train with frozen layers first, to get a stable loss.
     # Adjust num epochs to your dataset. This step is enough to obtain a not bad model.
     if True:
@@ -110,9 +105,9 @@ def _main():
 
         batch_size = 1#16#32
         print('Train on {} samples, val on {} samples, with batch size {}.'.format(num_train, num_val, batch_size))
-        model.fit_generator(data_generator_wrapper(train_lines, batch_size, input_shape, anchors, num_classes,teacher),
+        model.fit_generator(data_generator_wrapper(train_lines, batch_size, input_shape, anchors, num_classes,teacher,sess),
                 steps_per_epoch=max(1, num_train//batch_size),
-                validation_data=data_generator_wrapper(val_lines, batch_size, input_shape, anchors, num_classes,teacher),
+                validation_data=data_generator_wrapper(val_lines, batch_size, input_shape, anchors, num_classes,teacher,sess),
                 validation_steps=max(1, num_val//batch_size),
                 epochs=50,
                 initial_epoch=0,
@@ -129,17 +124,17 @@ def _main():
 
         batch_size =  1#16#32 note that more GPU memory is required after unfreezing the body
         print('Train on {} samples, val on {} samples, with batch size {}.'.format(num_train, num_val, batch_size))
-        model.fit_generator(data_generator_wrapper(train_lines, batch_size, input_shape, anchors, num_classes,teacher),
+        model.fit_generator(data_generator_wrapper(train_lines, batch_size, input_shape, anchors, num_classes,teacher,sess),
             steps_per_epoch=max(1, num_train//batch_size),
-            validation_data=data_generator_wrapper(val_lines, batch_size, input_shape, anchors, num_classes,teacher),
+            validation_data=data_generator_wrapper(val_lines, batch_size, input_shape, anchors, num_classes,teacher,sess),
             validation_steps=max(1, num_val//batch_size),
             epochs=100,
             initial_epoch=50,
             callbacks=[logging, checkpoint, reduce_lr, early_stopping])
         model.save_weights(log_dir + 'trained_weights_final.h5')
 
-    # Further training if needed.
-'''
+# Further training if needed.
+    '''
 
 def get_classes(classes_path):
     '''loads the classes'''
@@ -216,7 +211,7 @@ def create_tiny_model(input_shape, anchors, num_classes, load_pretrained=True, f
 
     return model
 
-def data_generator(annotation_lines, batch_size, input_shape, anchors, num_classes,teacher,sess):
+def data_generator(annotation_lines, batch_size, input_shape, anchors, num_classes,teacher):
     '''data generator for fit_generator'''
     n = len(annotation_lines)
     i = 0
@@ -233,7 +228,7 @@ def data_generator(annotation_lines, batch_size, input_shape, anchors, num_class
         image_data = np.array(image_data)
         #box_data = np.array(box_data)
         #y_true = preprocess_true_boxes(box_data, input_shape, anchors, num_classes)
-        
+  
         box = teacher.predict(image_data)
         #np.savez('temp_logits.npz', 0 = box[0] , 1=box[1] , 2=box[2] )
         #box = np.load('temp_logits.npz')[()]
@@ -242,10 +237,10 @@ def data_generator(annotation_lines, batch_size, input_shape, anchors, num_class
         y_true = box
         yield [image_data, *y_true], np.zeros(batch_size)
 
-def data_generator_wrapper(annotation_lines, batch_size, input_shape, anchors, num_classes,teacher,sess):
+def data_generator_wrapper(annotation_lines, batch_size, input_shape, anchors, num_classes,teacher):
     n = len(annotation_lines)
     if n==0 or batch_size<=0: return None
-    return data_generator(annotation_lines, batch_size, input_shape, anchors, num_classes,teacher,sess)
+    return data_generator(annotation_lines, batch_size, input_shape, anchors, num_classes,teacher)
 
 if __name__ == '__main__':
     _main()
