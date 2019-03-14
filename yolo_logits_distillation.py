@@ -92,7 +92,7 @@ def _main():
                 epochs=50,
                 initial_epoch=0,
                 callbacks=[logging, checkpoint])
-        model.save_weights(log_dir + 'trained_weights_stage_1.h5')
+        model.save_weights(log_dir + 'distill_trained_weights_stage_1.h5')
 
     # Unfreeze and continue training, to fine-tune.
     # Train longer if the result is not good.
@@ -111,7 +111,7 @@ def _main():
             epochs=100,
             initial_epoch=50,
             callbacks=[logging, checkpoint, reduce_lr, early_stopping])
-        model.save_weights(log_dir + 'trained_weights_final.h5')
+        model.save_weights(log_dir + 'distill_trained_weights_final.h5')
 
 # Further training if needed.
 
@@ -222,15 +222,15 @@ def data_generator(annotation_lines, batch_size, input_shape, anchors, num_class
         
         for l in range( len(m_true) ) : 
             #print(l)
-            m_true[l][...,:2] = sigmoid(m_true[l][...,:2]) 
-            m_true[l][..., 2:4] = np.exp(m_true[l][..., 2:4])
-            m_true[l][..., 4] = sigmoid(m_true[l][..., 4])
+            #m_true[l][...,:2] = sigmoid(m_true[l][...,:2]) 
+            #m_true[l][..., 2:4] = np.exp(m_true[l][..., 2:4])
+            #m_true[l][..., 4] = sigmoid(m_true[l][..., 4])
             m_true[l][..., 5:] = sigmoid(m_true[l][..., 5:])
             #print("inside")
-            box = np.where(m_true[l][:,:,:,:,4] > 0.3 )
+            box = np.where(y_true[l][:,:,:,:,4] > 0.3 )
             for i in range(len(box[0])  ):
                 s = np.array(box)
-                y_true[l][s[0,i],s[1,i],s[2,i],s[3,i]] = m_true[l][s[0,i],s[1,i],s[2,i],s[3,i]]
+                y_true[l][s[0,i],s[1,i],s[2,i],s[3,i],5:] = m_true[l][s[0,i],s[1,i],s[2,i],s[3,i],5:]
 
         yield [image_data, *y_true], np.zeros(batch_size)
 
