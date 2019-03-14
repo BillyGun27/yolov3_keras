@@ -3,6 +3,7 @@ Retrain the YOLO model for your own dataset.
 """
 
 import numpy as np
+import tensorflow as tf
 import keras.backend as K
 from keras.layers import Input, Lambda ,Reshape
 from keras.models import Model
@@ -29,6 +30,14 @@ def _main():
 
     input_shape = (416,416) # multiple of 32, hw
 
+    sess = tf.Session()
+    K.set_session(sess)
+
+    # Initialize all variables
+    init_op = tf.global_variables_initializer()
+    sess.run(init_op)
+    
+  
     is_tiny_version = len(anchors)==6 # default setting
     if is_tiny_version:
         model = create_tiny_model(input_shape, anchors, num_classes,
@@ -49,11 +58,11 @@ def _main():
     with open(val_path) as f:
         val_lines = f.readlines()
 
-   # with open(test_path) as f:
-   #     test_lines = f.readlines()
+# with open(test_path) as f:
+#     test_lines = f.readlines()
 
-   # train_lines = np.load('train_logits.npy')[()]
-   # val_lines = np.load('val_logits.npy')[()]
+# train_lines = np.load('train_logits.npy')[()]
+# val_lines = np.load('val_logits.npy')[()]
 
     num_val = int(len(train_lines))
     num_train = int(len(val_lines))
@@ -69,11 +78,11 @@ def _main():
     yolo2 = Reshape((26, 26, 3, 25))(teacher.layers[-2].output)
     yolo1 = Reshape((52, 52, 3, 25))(teacher.layers[-1].output)
     
-    teacher = Model( input= teacher.input , output=[yolo3,yolo2,yolo1] )
-    '''
+    teacher = Model( inputs= teacher.input , outputs=[yolo3,yolo2,yolo1] )
+    
     batch_size = 2
     i = 0 #step
-    for  logits in data_generator_wrapper(train_lines, batch_size, input_shape, anchors, num_classes,teacher) : 
+    for  logits in data_generator_wrapper(train_lines, batch_size, input_shape, anchors, num_classes,teacher,sess) : 
         #x , y = dat
         #train_logits[i] = logits
         #trainY[i] = dat
@@ -90,7 +99,8 @@ def _main():
         i+=1
         if i>= 3:#(len(train_lines)//batch_size+1) :
             break
-    '''
+    
+'''
     # Train with frozen layers first, to get a stable loss.
     # Adjust num epochs to your dataset. This step is enough to obtain a not bad model.
     if True:
@@ -129,7 +139,7 @@ def _main():
         model.save_weights(log_dir + 'trained_weights_final.h5')
 
     # Further training if needed.
-
+'''
 
 def get_classes(classes_path):
     '''loads the classes'''
@@ -206,7 +216,7 @@ def create_tiny_model(input_shape, anchors, num_classes, load_pretrained=True, f
 
     return model
 
-def data_generator(annotation_lines, batch_size, input_shape, anchors, num_classes,teacher):
+def data_generator(annotation_lines, batch_size, input_shape, anchors, num_classes,teacher,sess):
     '''data generator for fit_generator'''
     n = len(annotation_lines)
     i = 0
@@ -223,16 +233,19 @@ def data_generator(annotation_lines, batch_size, input_shape, anchors, num_class
         image_data = np.array(image_data)
         #box_data = np.array(box_data)
         #y_true = preprocess_true_boxes(box_data, input_shape, anchors, num_classes)
+        
         box = teacher.predict(image_data)
         #np.savez('temp_logits.npz', 0 = box[0] , 1=box[1] , 2=box[2] )
         #box = np.load('temp_logits.npz')[()]
+        #y_true = box
+        
         y_true = box
         yield [image_data, *y_true], np.zeros(batch_size)
 
-def data_generator_wrapper(annotation_lines, batch_size, input_shape, anchors, num_classes,teacher):
+def data_generator_wrapper(annotation_lines, batch_size, input_shape, anchors, num_classes,teacher,sess):
     n = len(annotation_lines)
     if n==0 or batch_size<=0: return None
-    return data_generator(annotation_lines, batch_size, input_shape, anchors, num_classes,teacher)
+    return data_generator(annotation_lines, batch_size, input_shape, anchors, num_classes,teacher,sess)
 
 if __name__ == '__main__':
     _main()

@@ -66,7 +66,7 @@ def _main():
             # use custom yolo_loss Lambda layer.
             'yolo_loss': lambda y_true, y_pred: y_pred})
 
-        batch_size = 16#32
+        batch_size = 6#32
         print('Train on {} samples, val on {} samples, with batch size {}.'.format(num_train, num_val, batch_size))
         model.fit_generator(data_generator_wrapper(train_lines, batch_size, input_shape, anchors, num_classes),
                 steps_per_epoch=max(1, num_train//batch_size),
@@ -85,7 +85,7 @@ def _main():
         model.compile(optimizer=Adam(lr=1e-4), loss={'yolo_loss': lambda y_true, y_pred: y_pred}) # recompile to apply the change
         print('Unfreeze all of the layers.')
 
-        batch_size =  16#32 note that more GPU memory is required after unfreezing the body
+        batch_size =  2#32 note that more GPU memory is required after unfreezing the body
         print('Train on {} samples, val on {} samples, with batch size {}.'.format(num_train, num_val, batch_size))
         model.fit_generator(data_generator_wrapper(train_lines, batch_size, input_shape, anchors, num_classes),
             steps_per_epoch=max(1, num_train//batch_size),
@@ -182,6 +182,7 @@ def data_generator(annotation_lines, batch_size, input_shape, anchors, num_class
     i = 0
     while True:
         image_data = []
+        y_true = []
         bbox_data = []
         mbox_data = []
         sbox_data = []
@@ -201,10 +202,13 @@ def data_generator(annotation_lines, batch_size, input_shape, anchors, num_class
         bbox_data = np.array(bbox_data)
         mbox_data = np.array(mbox_data)
         sbox_data = np.array(sbox_data)
+        y_true.append(bbox_data)
+        y_true.append(mbox_data)
+        y_true.append(sbox_data)
         #y_true = preprocess_true_boxes(box_data, input_shape, anchors, num_classes)
         #y_true = model.predict(image_data)
       
-        yield [image_data, bbox_data,  mbox_data , sbox_data], np.zeros(batch_size)
+        yield [image_data, *y_true], np.zeros(batch_size)
 
 def data_generator_wrapper(annotation_lines, batch_size, input_shape, anchors, num_classes):
     n = len(annotation_lines)
