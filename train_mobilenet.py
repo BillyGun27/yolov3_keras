@@ -3,11 +3,12 @@ Retrain the YOLO model for your own dataset.
 """
 
 import numpy as np
+import keras
 import keras.backend as K
 from keras.layers import Input, Lambda
 from keras.models import Model
 from keras.optimizers import Adam
-from keras.callbacks import TensorBoard, ModelCheckpoint, ReduceLROnPlateau, EarlyStopping
+from keras.callbacks import TensorBoard, ModelCheckpoint, ReduceLROnPlateau, EarlyStopping , LambdaCallback
 
 from model.core import preprocess_true_boxes, yolo_loss
 from model.mobilenet import yolo_body
@@ -43,6 +44,19 @@ def _main():
     reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=3, verbose=1)
     early_stopping = EarlyStopping(monitor='val_loss', min_delta=0, patience=10, verbose=1)
 
+    # Print the batch number at the beginning of every batch.
+    batch_print_callback = LambdaCallback(on_epoch_end=lambda batch,logs: print(batch))
+
+    class LossHistory(keras.callbacks.Callback):
+        def on_train_begin(self, logs={}):
+            self.losses = []
+
+        def on_epoch_end(self, batch, logs={}):
+            #self.losses.append(logs.get('loss'))
+            print(   K.shape( self.model.input[0] )[0]  )
+
+    history = LossHistory()
+
     with open(train_path) as f:
         train_lines = f.readlines()
 
@@ -52,8 +66,8 @@ def _main():
    # with open(test_path) as f:
    #     test_lines = f.readlines()
 
-    num_val = int(len(train_lines))
-    num_train = int(len(val_lines))
+    num_train = 5# int(len(train_lines))
+    num_val = 5 #int(len(val_lines))
 
     # Train with frozen layers first, to get a stable loss.
     # Adjust num epochs to your dataset. This step is enough to obtain a not bad model.
@@ -61,6 +75,7 @@ def _main():
         model.compile(optimizer=Adam(lr=1e-3), loss={
             # use custom yolo_loss Lambda layer.
             'yolo_loss': lambda y_true, y_pred: y_pred}
+            ,metrics=[mean_iou]
             )
 
         batch_size = 1#32
@@ -71,7 +86,7 @@ def _main():
                 validation_steps=max(1, num_val//batch_size),
                 epochs=50,
                 initial_epoch=0,
-                callbacks=[logging, checkpoint])
+                callbacks=[logging, checkpoint ])
         model.save_weights(log_dir + 'trained_weights_stage_1_mobilenetv2.h5')
 
     # Unfreeze and continue training, to fine-tune.
@@ -94,8 +109,34 @@ def _main():
         model.save_weights(log_dir + 'trained_weights_final_mobilenetv2.h5')
 
     # Further training if needed.
+def mean_iou( y_true, y_pred):
+        # Wraps np_mean_iou method and uses it as a TensorFlow op.
+        # Takes numpy arrays as its arguments and returns numpy arrays as
+        # its outputs.
+        return y_pred
 
 
+'''
+class Metrics(keras.callbacks.Callback):
+    def on_train_begin(self, logs={}):
+        self._data = []
+
+    def on_epoch_end(self, batch, logs={}):
+        X_val, y_val = self.validation_data[0], self.validation_data[1]
+        #y_predict = np.asarray(model.predict(X_val))
+
+        #y_val = np.argmax(y_val, axis=1)
+        #y_predict = np.argmax(y_predict, axis=1)
+        
+        self._data.append({
+            'val_rocauc': roc_auc_score(y_val, y_predict),
+        })
+        
+        print(X_val)
+
+    def get_data(self):
+        return self._data
+'''
 
 def get_classes(classes_path):
     '''loads the classes'''

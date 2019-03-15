@@ -95,7 +95,7 @@ def yolo_eval(yolo_outputs,
     boxes = []
     box_scores = []
     for l in range(num_layers):
-        print(yolo_outputs[l].shape)
+        #print(yolo_outputs[l].shape)
         _boxes, _box_scores = yolo_boxes_and_scores(yolo_outputs[l],
             anchors[anchor_mask[l]], num_classes, input_shape, image_shape)
         boxes.append(_boxes)
@@ -240,13 +240,13 @@ def box_iou(b1, b2):
     return iou
 
 
-def yolo_loss(args, anchors, num_classes, ignore_thresh=.5, print_loss=False):
+def yolo_loss(args, anchors, num_classes, ignore_thresh=.5, print_loss=True):
     '''Return yolo_loss tensor
 
     Parameters
     ----------
     yolo_outputs: list of tensor, the output of yolo_body or tiny_yolo_body
-    y_true: list of array, the output of preprocess_true_boxes
+    y_true: list of array, the output of preprocess_true_boxes (1,s,s,a,c)
     anchors: array, shape=(N, 2), wh
     num_classes: integer
     ignore_thresh: float, the iou threshold whether to ignore object confidence loss
@@ -283,13 +283,18 @@ def yolo_loss(args, anchors, num_classes, ignore_thresh=.5, print_loss=False):
         # Find ignore mask, iterate over each of batch.
         ignore_mask = tf.TensorArray(K.dtype(y_true[0]), size=1, dynamic_size=True)
         object_mask_bool = K.cast(object_mask, 'bool')
+
+        true_box = tf.boolean_mask(y_true[l][0,...,0:4], object_mask_bool[0,...,0])
+        iou = box_iou(pred_box[0], true_box)
+        best_iou = K.max(iou, axis=-1)
+
         def loop_body(b, ignore_mask):
             true_box = tf.boolean_mask(y_true[l][b,...,0:4], object_mask_bool[b,...,0])
             iou = box_iou(pred_box[b], true_box)
             best_iou = K.max(iou, axis=-1)
             ignore_mask = ignore_mask.write(b, K.cast(best_iou<ignore_thresh, K.dtype(true_box)))
-            return b+1, ignore_mask
-        _, ignore_mask = K.control_flow_ops.while_loop(lambda b,*args: b<m, loop_body, [0, ignore_mask])
+            return b+1, ignore_mask 
+        _, ignore_mask  = K.control_flow_ops.while_loop(lambda b,*args: b<m, loop_body, [0, ignore_mask])
         ignore_mask = ignore_mask.stack()
         ignore_mask = K.expand_dims(ignore_mask, -1)
 

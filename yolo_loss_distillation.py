@@ -93,7 +93,7 @@ def _main():
                 epochs=50,
                 initial_epoch=0,
                 callbacks=[logging, checkpoint])
-        model.save_weights(log_dir + 'trained_weights_stage_1.h5')
+        model.save_weights(log_dir + 'distillation_loss_trained_weights_stage_1.h5')
 
     # Unfreeze and continue training, to fine-tune.
     # Train longer if the result is not good.
@@ -112,7 +112,7 @@ def _main():
             epochs=100,
             initial_epoch=50,
             callbacks=[logging, checkpoint, reduce_lr, early_stopping])
-        model.save_weights(log_dir + 'trained_weights_final.h5')
+        model.save_weights(log_dir + 'distillation_loss_trained_weights_final.h5')
 
 # Further training if needed.
 
@@ -200,8 +200,8 @@ def create_tiny_model(input_shape, anchors, num_classes, load_pretrained=True, f
 
     model_loss = Lambda(yolo_distill_loss, output_shape=(1,), name='yolo_distill_loss',
         arguments={'anchors': anchors, 'num_classes': num_classes, 'ignore_thresh': 0.7})(
-        [*model_body.output, *y_true])
-    model = Model([model_body.input, *y_true], model_loss)
+        [*model_body.output, *y_true, *l_true])
+    model = Model([model_body.input, *y_true, *l_true], model_loss)
 
     return model
 
@@ -223,7 +223,8 @@ def data_generator(annotation_lines, batch_size, input_shape, anchors, num_class
         box_data = np.array(box_data)
         y_true = preprocess_true_boxes(box_data, input_shape, anchors, num_classes)
         m_true = teacher.predict(image_data)
-        '''
+        l_true = y_true
+
         for l in range( len(m_true) ) : 
             #print(l)
             m_true[l][...,:2] = sigmoid(m_true[l][...,:2]) 
@@ -231,13 +232,13 @@ def data_generator(annotation_lines, batch_size, input_shape, anchors, num_class
             m_true[l][..., 4] = sigmoid(m_true[l][..., 4])
             m_true[l][..., 5:] = sigmoid(m_true[l][..., 5:])
             #print("inside")
-            box = np.where(m_true[l][:,:,:,:,4] > 0.3 )
+            box = np.where(y_true[l][:,:,:,:,4] > 0.3 )
             for i in range(len(box[0])  ):
                 s = np.array(box)
-                y_true[l][s[0,i],s[1,i],s[2,i],s[3,i]] = m_true[l][s[0,i],s[1,i],s[2,i],s[3,i]]
-        '''
+                l_true[l][s[0,i],s[1,i],s[2,i],s[3,i]] = m_true[l][s[0,i],s[1,i],s[2,i],s[3,i]]
+        
 
-        yield [image_data, *y_true , *m_true ], np.zeros(batch_size)
+        yield [image_data, *y_true , *l_true ], np.zeros(batch_size)
 
 def data_generator_wrapper(annotation_lines, batch_size, input_shape, anchors, num_classes,teacher):
     n = len(annotation_lines)
