@@ -47,6 +47,52 @@ def _main():
     # Print the batch number at the beginning of every batch.
     #batch_print_callback = LambdaCallback(on_epoch_end=lambda batch,logs: print(batch))
 
+    # Function to display the target and prediciton
+    i=0
+    def testmodel(epoch, logs):
+        #logito = next(data_iterator)
+        '''
+        predout = model.predict(
+            logito[0],
+            batch_size=1
+        )
+
+        print("Input\n")
+        print(predx)
+        print("Target\n")
+        print(predy)
+        print("Prediction\n")
+        print(predout)
+        '''
+        #print(logs)
+        #print(i)
+        #i+=1
+
+    # Callback to display the target and prediciton
+    testmodelcb = keras.callbacks.LambdaCallback(on_epoch_end=testmodel)
+
+
+    class LossHistory(keras.callbacks.Callback):
+        def __init__(self, val_data, batch_size = 20):
+            super().__init__()
+            self.validation_data = val_data
+            self.batch_size = batch_size
+
+        def on_epoch_begin(self, epoch, logs={}):
+            self.losses = []
+            #print(self.validation_data)
+           
+            print(self.batch_size)
+
+        def on_epoch_end(self, epoch, logs={}):
+            #self.losses.append(logs.get('loss'))
+            #print(   K.shape( self.model.input[0] )[0]  )
+            valdar = next( self.validation_data )
+            print( valdar[0][0].shape )
+            res= self.model.predict( valdar[0][0] )
+            print( res )
+            self.batch_size +=1
+
 
     with open(train_path) as f:
         train_lines = f.readlines()
@@ -66,9 +112,10 @@ def _main():
         model.compile(optimizer=Adam(lr=1e-3), loss={
             # use custom yolo_loss Lambda layer.
             'yolo_loss': lambda y_true, y_pred: y_pred}
+            ,metrics=[mean_iou]
             )
 
-        batch_size = 16#32
+        batch_size = 1#32
 
         history = LossHistory(data_generator_wrapper(val_lines, batch_size, input_shape, anchors, num_classes) , batch_size=1 )
         
@@ -79,12 +126,12 @@ def _main():
                 validation_steps=max(1, num_val//batch_size),
                 epochs=50,
                 initial_epoch=0,
-                callbacks=[logging, checkpoint ])
+                callbacks=[logging, checkpoint , history ])
         model.save_weights(log_dir + 'trained_weights_stage_1_mobilenetv2.h5')
 
     # Unfreeze and continue training, to fine-tune.
     # Train longer if the result is not good.
-    if True:
+    if False:
         for i in range(len(model.layers)):
             model.layers[i].trainable = True
         model.compile(optimizer=Adam(lr=1e-4), loss={'yolo_loss': lambda y_true, y_pred: y_pred}) # recompile to apply the change
@@ -101,6 +148,35 @@ def _main():
             callbacks=[logging, checkpoint, reduce_lr, early_stopping])
         model.save_weights(log_dir + 'trained_weights_final_mobilenetv2.h5')
 
+    # Further training if needed.
+def mean_iou( y_true, y_pred):
+        # Wraps np_mean_iou method and uses it as a TensorFlow op.
+        # Takes numpy arrays as its arguments and returns numpy arrays as
+        # its outputs.
+        return y_true
+
+
+'''
+class Metrics(keras.callbacks.Callback):
+    def on_train_begin(self, logs={}):
+        self._data = []
+
+    def on_epoch_end(self, batch, logs={}):
+        X_val, y_val = self.validation_data[0], self.validation_data[1]
+        #y_predict = np.asarray(model.predict(X_val))
+
+        #y_val = np.argmax(y_val, axis=1)
+        #y_predict = np.argmax(y_predict, axis=1)
+        
+        self._data.append({
+            'val_rocauc': roc_auc_score(y_val, y_predict),
+        })
+        
+        print(X_val)
+
+    def get_data(self):
+        return self._data
+'''
 
 def get_classes(classes_path):
     '''loads the classes'''

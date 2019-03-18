@@ -73,7 +73,7 @@ def _main():
         for logits in tqdm( data_generator_wrapper(train_lines, batch_size, input_shape, anchors, num_classes,model) ) : 
             
             img[i] = logits[0][0] # np.random.randint(255, size=(416, 416, 3)) #        
-            bbox[i] = logits[1][0]
+            bbox[i] = logits[1][0] #(13,13,3,25)
             mbox[i] = logits[2][0]
             sbox[i] = logits[3][0]
              
