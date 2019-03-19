@@ -9,11 +9,12 @@ from keras.layers import Input, Lambda
 from keras.models import Model
 from keras.optimizers import Adam
 from keras.callbacks import TensorBoard, ModelCheckpoint, ReduceLROnPlateau, EarlyStopping , LambdaCallback
-
+import tensorflow as tf
 from model.core import preprocess_true_boxes, yolo_loss
-from model.mobilenet import yolo_body
+from model.yolo3 import yolo_body
 from model.yolo3 import tiny_yolo_body
 from model.utils  import get_random_data
+from model.evaluation import AveragePrecision
 
 import argparse
 
@@ -36,7 +37,7 @@ def _main():
             freeze_body=2, weights_path='model_data/xtiny_yolo_weights.h5')
     else:
         model = create_model(input_shape, anchors, num_classes,
-            freeze_body=2, weights_path='model_data/trained_weights_final_mobilenetv2.h5') # make sure you know what you freeze
+            freeze_body=2, weights_path='model_data/trained_weights_final.h5') #trained_weights_final_mobilenetv2.h5 # make sure you know what you freeze
 
     logging = TensorBoard(log_dir=log_dir)
     checkpoint = ModelCheckpoint(log_dir + 'mobep{epoch:03d}-loss{loss:.3f}-val_loss{val_loss:.3f}.h5',
@@ -78,20 +79,41 @@ def _main():
             self.validation_data = val_data
             self.batch_size = batch_size
 
+        def caller(self , cel):
+            return cel
+
         def on_epoch_begin(self, epoch, logs={}):
             self.losses = []
             #print(self.validation_data)
-           
-            print(self.batch_size)
+            print( self.caller("b") )
+            print( self.batch_size)
 
         def on_epoch_end(self, epoch, logs={}):
             #self.losses.append(logs.get('loss'))
             #print(   K.shape( self.model.input[0] )[0]  )
             valdar = next( self.validation_data )
             print( valdar[0][0].shape )
-            res= self.model.predict( valdar[0][0] )
+
+            image_input = Input(shape=(None, None, 3))
+
+            #model_body = yolo_body(image_input, num_anchors//3, num_classes)
+            #model_body.load_weights(weights_path, by_name=True, skip_mismatch=True)
+
+            #self.model.layers.pop()
+            self.model.summary()
+            #testmodel =  Model(  self.model.get_layer('input_1').input , self.model.get_layer('conv2d_23').output )
+            testmodel =  Model(  self.model.layers[0].input , self.model.layers[-5].output )
+            res= testmodel.predict( valdar[0][0] )
+            print( res.shape )
             print( res )
-            self.batch_size +=1
+            
+            #with tf.Session() as sess:
+            #    init = tf.global_variables_initializer()
+            #    sess.run(init)
+                #print(pred_box.eval().shape)
+           #     print ( self.model.get_layer('conv2d_23').output.eval() )
+           #     print ( self.model.get_layer('conv2d_23').output.eval().shape )
+            #self.batch_size +=1
 
 
     with open(train_path) as f:
@@ -115,9 +137,9 @@ def _main():
             ,metrics=[mean_iou]
             )
 
-        batch_size = 1#32
+        batch_size = 2#32
 
-        history = LossHistory(data_generator_wrapper(val_lines, batch_size, input_shape, anchors, num_classes) , batch_size=1 )
+        meanAP = AveragePrecision(data_generator_wrapper(val_lines, 1 , input_shape, anchors, num_classes) ,batch_size, input_shape , len(anchors)//3 , anchors ,num_classes)
         
         print('Train on {} samples, val on {} samples, with batch size {}.'.format(num_train, num_val, batch_size))
         model.fit_generator(data_generator_wrapper(train_lines, batch_size, input_shape, anchors, num_classes),
@@ -126,7 +148,7 @@ def _main():
                 validation_steps=max(1, num_val//batch_size),
                 epochs=50,
                 initial_epoch=0,
-                callbacks=[logging, checkpoint , history ])
+                callbacks=[logging, checkpoint , meanAP ])
         model.save_weights(log_dir + 'trained_weights_stage_1_mobilenetv2.h5')
 
     # Unfreeze and continue training, to fine-tune.
