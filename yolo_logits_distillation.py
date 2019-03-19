@@ -92,7 +92,7 @@ def _main():
                 epochs=50,
                 initial_epoch=0,
                 callbacks=[logging, checkpoint])
-        model.save_weights(log_dir + 'distillation_logits_trained_weights_stage_1.h5')
+        model.save_weights(log_dir + 'class_only_distillation_mobilenet_trained_weights_stage_1.h5')
 
     # Unfreeze and continue training, to fine-tune.
     # Train longer if the result is not good.
@@ -111,7 +111,7 @@ def _main():
             epochs=100,
             initial_epoch=50,
             callbacks=[logging, checkpoint, reduce_lr, early_stopping])
-        model.save_weights(log_dir + 'distillation_logits_trained_weights_stage_1.h5')
+        model.save_weights(log_dir + 'class_only_distillation_mobilenet_trained_weights_final.h5')
 
 # Further training if needed.
 
