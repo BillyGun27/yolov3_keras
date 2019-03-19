@@ -29,11 +29,11 @@ class AveragePrecision(Callback):
         def on_epoch_end(self, epoch, logs={}):
             #self.losses.append(logs.get('loss'))
             #print(   K.shape( self.model.input[0] )[0]  )
-            obj = ["aeroplane", "bicycle", "bird", "boat", "bottle", "bus", "car", "cat", "chair", "cow", "diningtable", "dog", "horse", "motorbike", "person", "pottedplant", "sheep", "sofa", "train", "tvmonitor"]
+            #obj = ["aeroplane", "bicycle", "bird", "boat", "bottle", "bus", "car", "cat", "chair", "cow", "diningtable", "dog", "horse", "motorbike", "person", "pottedplant", "sheep", "sofa", "train", "tvmonitor"]
             batch_map = []
             for b in range(self.batch_size):
                 layers_map = []
-                print("batch" + str(b) )
+                #print("batch" + str(b) )
                 val_dat , zeros = next( self.validation_data )
                 image_data = val_dat[0] 
                 true_label = val_dat[1:4] if self.num_layers==3 else val_dat[1:3]
@@ -45,7 +45,7 @@ class AveragePrecision(Callback):
                 scale_map = []
                 for lyr in range(self.num_layers):
                     #print(self.num_layers)
-                    print("layer" + str(lyr) )
+                    #print("layer" + str(lyr) )
                     #print( true_label[lyr].shape )
                     arrp = true_label[lyr]
                     box = np.where(arrp[...,4] > 0 )
@@ -59,9 +59,7 @@ class AveragePrecision(Callback):
                         #print(pred_output.shape)
                         
                         pred_output = tf.Variable(pred_output) 
-
                         image_input = Input(self.input_shape)
-
                         anchor_mask = [[6,7,8], [3,4,5], [0,1,2]] if self.num_layers==3 else [[3,4,5], [1,2,3]]
 
                         pred_xy, pred_wh , pred_conf , pred_class = yolo_head( pred_output ,self.anchors[anchor_mask[lyr]], self.num_classes, self.input_shape, calc_loss=False)
@@ -107,11 +105,11 @@ class AveragePrecision(Callback):
                             scores = np.append(scores, pred_conf[ tuple(box[i]) ] )
                             if( best_iou[tuple(box[i])] > iou_thres and  pred_conf[tuple(box[i])] > conf_thres and (true_class_label and pred_class_label ) ):
                                 #print( best_iou[tuple(box[i])] )
-                                print("pos")
+                                #print("pos")
                                 false_positives = np.append(false_positives, 0)
                                 true_positives   = np.append(true_positives, 1)
                             else:
-                                print("neg")
+                                #print("neg")
                                 false_positives = np.append(false_positives, 1)
                                 true_positives  = np.append(true_positives, 0)
                             #print("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
@@ -119,56 +117,30 @@ class AveragePrecision(Callback):
                         indices         = np.argsort(-scores)
                         false_positives = false_positives[indices]
                         true_positives  = true_positives[indices]
-                        print(true_positives)
+                        #print(true_positives)
 
                         false_positives = np.cumsum(false_positives)
                         true_positives  = np.cumsum(true_positives)
-                        print(true_positives)
+                        #print(true_positives)
 
                         recall = true_positives  / len(box)
-                        print( recall )
+                        #print( recall )
                         precision = true_positives / np.maximum(true_positives + false_positives, np.finfo(np.float64).eps)
-                        print( precision )
+                        #print( precision )
 
                         average_precision  = compute_ap(recall, precision)
-                        print(average_precision)
+                        #print(average_precision)
                         scale_map.append(average_precision)
                         
                 
-                print(np.mean(scale_map))
+                #print(np.mean(scale_map))
                 batch_map.append( np.mean(scale_map) )
 
-            print("batch")
+            #print("batch")
             print(np.mean(batch_map))
 
                     
                                                     
-            #print( image_data.shape )
-            #print( image_data[0,0,0] )
-            #print( true_label[0].shape )
-            #print( true_label[1].shape )
-            #print( true_label[2].shape )
-
-            #image_input = Input(self.input_shape)
-
-            #testmodel =  Model(  self.model.get_layer('input_1').input , self.model.get_layer('conv2d_23').output )
-            #testmodel =  Model(  self.model.layers[0].input , [ self.model.layers[-7].output, self.model.layers[-6].output,self.model.layers[-5].output ] )
-            #res= testmodel.predict( image_data )
-            #print( res[0].shape )
-            #print( res[1].shape )
-            #print( res[2].shape )
-            #print( res )
-            
-            #with tf.Session() as sess:
-            #    init = tf.global_variables_initializer()
-            #    sess.run(init)
-                #print(pred_box.eval().shape)
-           #     print ( self.model.get_layer('conv2d_23').output.eval() )
-           #     print ( self.model.get_layer('conv2d_23').output.eval().shape )
-           # self.batch_size +=1
-
-        #def caller(self , cel):
-        #    return cel
 
 
 def compute_ap(recall, precision):

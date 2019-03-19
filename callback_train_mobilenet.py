@@ -125,8 +125,8 @@ def _main():
    # with open(test_path) as f:
    #     test_lines = f.readlines()
 
-    num_train = 2# int(len(train_lines))
-    num_val = 2 #int(len(val_lines))
+    num_train = 4# int(len(train_lines))
+    num_val = 4 #int(len(val_lines))
 
     # Train with frozen layers first, to get a stable loss.
     # Adjust num epochs to your dataset. This step is enough to obtain a not bad model.
@@ -137,7 +137,7 @@ def _main():
             ,metrics=[mean_iou]
             )
 
-        batch_size = 2#32
+        batch_size = 1#32
 
         meanAP = AveragePrecision(data_generator_wrapper(val_lines, 1 , input_shape, anchors, num_classes) ,batch_size, input_shape , len(anchors)//3 , anchors ,num_classes)
         

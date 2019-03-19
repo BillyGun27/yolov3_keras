@@ -14,6 +14,7 @@ from model.core import preprocess_true_boxes, yolo_loss
 from model.mobilenet import yolo_body
 from model.yolo3 import tiny_yolo_body
 from model.utils  import get_random_data
+from model.evaluation import AveragePrecision
 
 import argparse
 
@@ -33,7 +34,7 @@ def _main():
     is_tiny_version = len(anchors)==6 # default setting
     if is_tiny_version:
         model = create_tiny_model(input_shape, anchors, num_classes,
-            freeze_body=2, weights_path='model_data/xtiny_yolo_weights.h5')
+            freeze_body=2, weights_path='model_data/tiny_yolo_weights.h5')
     else:
         model = create_model(input_shape, anchors, num_classes,
             freeze_body=2, weights_path='model_data/trained_weights_final_mobilenetv2.h5') # make sure you know what you freeze
@@ -43,9 +44,6 @@ def _main():
         monitor='val_loss', save_weights_only=True, save_best_only=True, period=3)
     reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=3, verbose=1)
     early_stopping = EarlyStopping(monitor='val_loss', min_delta=0, patience=10, verbose=1)
-
-    # Print the batch number at the beginning of every batch.
-    #batch_print_callback = LambdaCallback(on_epoch_end=lambda batch,logs: print(batch))
 
 
     with open(train_path) as f:
@@ -57,8 +55,8 @@ def _main():
    # with open(test_path) as f:
    #     test_lines = f.readlines()
 
-    num_train = 2# int(len(train_lines))
-    num_val = 2 #int(len(val_lines))
+    num_train =  int(len(train_lines))
+    num_val = int(len(val_lines))
 
     # Train with frozen layers first, to get a stable loss.
     # Adjust num epochs to your dataset. This step is enough to obtain a not bad model.
@@ -70,7 +68,7 @@ def _main():
 
         batch_size = 16#32
 
-        history = LossHistory(data_generator_wrapper(val_lines, batch_size, input_shape, anchors, num_classes) , batch_size=1 )
+        meanAP = AveragePrecision(data_generator_wrapper(val_lines, 1 , input_shape, anchors, num_classes) ,batch_size, input_shape , len(anchors)//3 , anchors ,num_classes)
         
         print('Train on {} samples, val on {} samples, with batch size {}.'.format(num_train, num_val, batch_size))
         model.fit_generator(data_generator_wrapper(train_lines, batch_size, input_shape, anchors, num_classes),
@@ -79,7 +77,7 @@ def _main():
                 validation_steps=max(1, num_val//batch_size),
                 epochs=50,
                 initial_epoch=0,
-                callbacks=[logging, checkpoint ])
+                callbacks=[logging, checkpoint , meanAP ])
         model.save_weights(log_dir + 'trained_weights_stage_1_mobilenetv2.h5')
 
     # Unfreeze and continue training, to fine-tune.
@@ -91,6 +89,9 @@ def _main():
         print('Unfreeze all of the layers.')
 
         batch_size =  8#32 note that more GPU memory is required after unfreezing the body
+
+        meanAP = AveragePrecision(data_generator_wrapper(val_lines, 1 , input_shape, anchors, num_classes) ,batch_size, input_shape , len(anchors)//3 , anchors ,num_classes)
+        
         print('Train on {} samples, val on {} samples, with batch size {}.'.format(num_train, num_val, batch_size))
         model.fit_generator(data_generator_wrapper(train_lines, batch_size, input_shape, anchors, num_classes),
             steps_per_epoch=max(1, num_train//batch_size),
@@ -98,7 +99,7 @@ def _main():
             validation_steps=max(1, num_val//batch_size),
             epochs=100,
             initial_epoch=50,
-            callbacks=[logging, checkpoint, reduce_lr, early_stopping])
+            callbacks=[logging, checkpoint, reduce_lr, early_stopping , meanAP])
         model.save_weights(log_dir + 'trained_weights_final_mobilenetv2.h5')
 
 
