@@ -233,12 +233,15 @@ def data_generator(annotation_lines, batch_size, input_shape, anchors, num_class
         box_data = np.array(box_data)
         y_true = preprocess_true_boxes(box_data, input_shape, anchors, num_classes)
         m_true = teacher.predict(image_data)
-        l_true = y_true
+        l_true = np.copy(y_true)
         
-        print(len(y_true))
-        print(len(m_true))
-        print(len(l_true))
+        #print(len(y_true))
+        #print(len(m_true))
+        #print(len(l_true))
+        anchor_mask = [[6,7,8], [3,4,5], [0,1,2]] if len(m_true)==3 else [[3,4,5], [1,2,3]] 
+
         for l in range( len(m_true) ) : 
+            '''
             pred_output = tf.Variable(m_true[l]) 
             anchor_mask = [[6,7,8], [3,4,5], [0,1,2]] if len(m_true)==3 else [[3,4,5], [1,2,3]] 
             pred_xy, pred_wh , pred_conf , pred_class = yolo_head( pred_output ,anchors[anchor_mask[l]], num_classes, input_shape, calc_loss=False)
@@ -249,18 +252,28 @@ def data_generator(annotation_lines, batch_size, input_shape, anchors, num_class
                     sess.run(init)
                     
                     pred_model = pred_model.eval()
-                   
+            '''
+            anchors_tensor = np.reshape( anchors[anchor_mask[l]] , [1, 1, 1, len( anchors[anchor_mask[l]] ) , 2] )
+
+            grid_shape = m_true[l].shape[1:3] # height, width
+            grid_shape
+            grid_y = np.tile(np.reshape(np.arange(0, stop=grid_shape[0]), [-1, 1, 1, 1]),
+                [1, grid_shape[1], 1, 1])
+            grid_x = np.tile(np.reshape(np.arange(0, stop=grid_shape[1]), [1, -1, 1, 1]),
+                [grid_shape[0], 1, 1, 1])
+            grid = np.concatenate([grid_x, grid_y],axis=3)
+
             #print(l)
-            #m_true[l][...,:2] = sigmoid(m_true[l][...,:2]) 
-            #m_true[l][..., 2:4] = np.exp(m_true[l][..., 2:4])
-            #m_true[l][..., 4] = sigmoid(m_true[l][..., 4])
-            #m_true[l][..., 5:] = sigmoid(m_true[l][..., 5:])
+            m_true[l][...,:2] = (sigmoid(m_true[l][...,:2]) + grid ) / np.array( grid_shape[::-1] )
+            m_true[l][..., 2:4] = np.exp(m_true[l][..., 2:4])  / np.array( input_shape[::-1] )
+            m_true[l][..., 4] = sigmoid(m_true[l][..., 4])
+            m_true[l][..., 5:] = sigmoid(m_true[l][..., 5:])
             #print("inside")
             box = np.where(y_true[l][...,4] > 0.5 )
             box = np.transpose(box)
 
             for i in range(len(box)):
-                l_true[l][tuple(box[i])] = pred_model[tuple(box[i])]
+                l_true[l][tuple(box[i])] = m_true[l][tuple(box[i])] #pred_model[tuple(box[i])]
         
         
         yield [image_data, *y_true , *l_true ], np.zeros(batch_size)
