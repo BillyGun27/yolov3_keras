@@ -6,6 +6,8 @@ import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 
 import numpy as np
+import tensorflow as tf
+from tensorflow import keras
 import keras.backend as K
 import h5py
 from keras.preprocessing.image import ImageDataGenerator
@@ -37,7 +39,7 @@ def _main():
 
     with open(train_path) as f:
         train_lines = f.readlines()
-
+    #s
     with open(val_path) as f:
         val_lines = f.readlines()
 

@@ -1,4 +1,6 @@
 import numpy as np
+import tensorflow as tf
+from tensorflow import keras
 import keras.backend as K
 from keras.layers import Input, Lambda
 from keras.models import Model

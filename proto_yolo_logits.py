@@ -6,6 +6,8 @@ import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 
 import numpy as np
+import tensorflow as tf
+from tensorflow import keras
 import keras.backend as K
 import h5py
 from keras.preprocessing.image import ImageDataGenerator
@@ -43,7 +45,7 @@ def _main():
 
    # with open(test_path) as f:
    #     test_lines = f.readlines()
-    '''
+
     num_anchors = len(anchors)
     image_input = Input(shape=(416, 416, 3))
     model = yolo_body(image_input, num_anchors//3, num_classes)
@@ -55,15 +57,14 @@ def _main():
     
 
     model = Model( inputs= model.input , outputs=[yolo3,yolo2,yolo1] )
-    '''
-
+    
     batch_size = 1
     
     print( "total "+ str(len(train_lines)) + " loop "+ str( len(train_lines) ) )
 
         # create an hdf5 file
-    train_size = 10#len(train_lines)
-    with h5py.File("train_fake_logits.h5",'w') as f:
+    train_size = len(train_lines)
+    with h5py.File("train_logits.h5",'w') as f:
         # create a dataset for your movie
         img = f.create_dataset("img_data", shape=(  train_size, 416, 416, 3)) #len(train_lines)
         bbox = f.create_dataset("big_logits", shape=( train_size, 13, 13, 3, 25))
@@ -72,16 +73,14 @@ def _main():
 
         # fill the 10 frames with a random image
         i = 0
-        for logits in tqdm( data_generator_wrapper(train_lines , batch_size, input_shape, anchors, num_classes) ) : 
+        for logits in tqdm( data_generator_wrapper(train_lines, batch_size, input_shape, anchors, num_classes,model) ) : 
             #print(logits[0][0])
             #print(logits[0][0].shape)
             #trat = logits[0][0]
 
             #print("box")
             #print(logits[1][0])
-            print(logits[1][0].shape)
-            print(logits[2][0].shape)
-            print(logits[3][0].shape)
+            #print(logits[1][0].shape)
 
             img[i] = logits[0][0] # np.random.randint(255, size=(416, 416, 3)) #        
             bbox[i] = logits[1][0]
@@ -120,8 +119,8 @@ def _main():
     #train_logits = np.array(train_logits)
     #print(train_logits.shape)
 
-    val_size = 10#len(val_lines)
-    with h5py.File("val_fake_logits.h5",'w') as f:
+    val_size = len(val_lines)
+    with h5py.File("val_logits.h5",'w') as f:
         # create a dataset for your movie
         img = f.create_dataset("img_data", shape=(  val_size, 416, 416, 3)) #
         bbox = f.create_dataset("big_logits", shape=( val_size, 13, 13, 3, 25))
@@ -130,7 +129,7 @@ def _main():
 
         # fill the 10 frames with a random image
         i = 0
-        for logits in tqdm( data_generator_wrapper(val_lines, batch_size, input_shape, anchors, num_classes) ) : 
+        for logits in tqdm( data_generator_wrapper(val_lines, batch_size, input_shape, anchors, num_classes,model) ) : 
 
             img[i] = logits[0][0] # np.random.randint(255, size=(416, 416, 3)) #        
             bbox[i] = logits[1][0]
@@ -200,8 +199,9 @@ def get_anchors(anchors_path):
     return np.array(anchors).reshape(-1, 2)
 
 
-def data_generator(annotation_lines, batch_size, input_shape, anchors, num_classes):
+def data_generator(annotation_lines, batch_size, input_shape, anchors, num_classes,model):
     '''data generator for fit_generator'''
+
     n = len(annotation_lines)
     i = 0
     while True:
@@ -215,14 +215,24 @@ def data_generator(annotation_lines, batch_size, input_shape, anchors, num_class
             box_data.append(box)
             i = (i+1) % n
         image_data = np.array(image_data)
-        box_data = np.array(box_data)
-        y_true = preprocess_true_boxes(box_data, input_shape, anchors, num_classes)
+        #box_data = np.array(box_data)
+        #y_true = preprocess_true_boxes(box_data, input_shape, anchors, num_classes)
+       # print(image_data.shape)
+        y_true = model.predict(image_data)
+       # print("d")
+      #  print(y_true[0].shape)
+      #  print(y_true[1].shape)
+      #  print(y_true[2].shape)
+       # y_true[0] = y_true[0].reshape(y_true[0].shape[0], y_true[0].shape[1], y_true[0].shape[2], 3 , y_true[0].shape[3]//3 ) 
+       # y_true[1] = y_true[1].reshape(y_true[1].shape[0], y_true[1].shape[1], y_true[1].shape[2], 3 , y_true[1].shape[3]//3 ) 
+       # y_true[2] = y_true[2].reshape(y_true[2].shape[0], y_true[2].shape[1], y_true[2].shape[2], 3 , y_true[2].shape[3]//3 ) 
+
         yield [image_data, *y_true]#, np.zeros(batch_size)
 
-def data_generator_wrapper(annotation_lines, batch_size, input_shape, anchors, num_classes):
+def data_generator_wrapper(annotation_lines, batch_size, input_shape, anchors, num_classes,model):
     n = len(annotation_lines)
     if n==0 or batch_size<=0: return None
-    return data_generator(annotation_lines, batch_size, input_shape, anchors, num_classes)
+    return data_generator(annotation_lines, batch_size, input_shape, anchors, num_classes,model)
 
 if __name__ == '__main__':
     _main()

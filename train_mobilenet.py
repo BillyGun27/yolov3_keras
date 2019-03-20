@@ -3,7 +3,8 @@ Retrain the YOLO model for your own dataset.
 """
 
 import numpy as np
-import keras
+import tensorflow as tf
+from tensorflow import keras
 import keras.backend as K
 from keras.layers import Input, Lambda
 from keras.models import Model

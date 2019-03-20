@@ -4,17 +4,19 @@ Retrain the YOLO model for your own dataset.
 
 import numpy as np
 import tensorflow as tf
+from tensorflow import keras
 import keras.backend as K
 from keras.layers import Input, Lambda ,Reshape
 from keras.models import Model
 from keras.optimizers import Adam
 from keras.callbacks import TensorBoard, ModelCheckpoint, ReduceLROnPlateau, EarlyStopping
 
-from model.core import preprocess_true_boxes
+from model.core import preprocess_true_boxes,yolo_head
 from model.distillation import yolo_distill_loss
 from model.mobilenet import mobilenetv2_yolo_body
 from model.yolo3 import yolo_body, tiny_yolo_body
 from model.utils  import get_random_data
+from model.evaluation import AveragePrecision
 
 import argparse
 
@@ -69,22 +71,25 @@ def _main():
     
     # return the constructed network architecture
     # class+5
-    yolo3 = Reshape((13, 13, 3, 25))(teacher.layers[-3].output)
-    yolo2 = Reshape((26, 26, 3, 25))(teacher.layers[-2].output)
-    yolo1 = Reshape((52, 52, 3, 25))(teacher.layers[-1].output)
+    #yolo3 = Reshape((13, 13, 3, 25))(teacher.layers[-3].output)
+    #yolo2 = Reshape((26, 26, 3, 25))(teacher.layers[-2].output)
+    #yolo1 = Reshape((52, 52, 3, 25))(teacher.layers[-1].output)
     
-    teacher = Model( inputs= teacher.input , outputs=[yolo3,yolo2,yolo1] )
+    #teacher = Model( inputs= teacher.input , outputs=[yolo3,yolo2,yolo1] )
     teacher._make_predict_function()
 
-       
+   
     # Train with frozen layers first, to get a stable loss.
     # Adjust num epochs to your dataset. This step is enough to obtain a not bad model.
     if True:
         model.compile(optimizer=Adam(lr=1e-3), loss={
             # use custom yolo_loss Lambda layer.
             'yolo_distill_loss': lambda y_true, y_pred: y_pred})
-
+    
         batch_size = 16#32
+
+        meanAP = AveragePrecision(data_generator_wrapper(val_lines, 1 , input_shape, anchors, num_classes ,teacher ) ,batch_size, input_shape , len(anchors)//3 , anchors ,num_classes)
+
         print('Train on {} samples, val on {} samples, with batch size {}.'.format(num_train, num_val, batch_size))
         model.fit_generator(data_generator_wrapper(train_lines, batch_size, input_shape, anchors, num_classes,teacher),
                 steps_per_epoch=max(1, num_train//batch_size),
@@ -92,7 +97,7 @@ def _main():
                 validation_steps=max(1, num_val//batch_size),
                 epochs=50,
                 initial_epoch=0,
-                callbacks=[logging, checkpoint])
+                callbacks=[logging, checkpoint,  meanAP])
         model.save_weights(log_dir + 'distillation_loss_trained_weights_stage_1.h5')
 
     # Unfreeze and continue training, to fine-tune.
@@ -103,7 +108,10 @@ def _main():
         model.compile(optimizer=Adam(lr=1e-4), loss={'yolo_distill_loss': lambda y_true, y_pred: y_pred}) # recompile to apply the change
         print('Unfreeze all of the layers.')
 
-        batch_size =  16#32 note that more GPU memory is required after unfreezing the body
+        batch_size =  8#32 note that more GPU memory is required after unfreezing the body
+
+        meanAP = AveragePrecision(data_generator_wrapper(val_lines, 1 , input_shape, anchors, num_classes ,teacher) ,batch_size, input_shape , len(anchors)//3 , anchors ,num_classes)
+
         print('Train on {} samples, val on {} samples, with batch size {}.'.format(num_train, num_val, batch_size))
         model.fit_generator(data_generator_wrapper(train_lines, batch_size, input_shape, anchors, num_classes,teacher),
             steps_per_epoch=max(1, num_train//batch_size),
@@ -111,9 +119,9 @@ def _main():
             validation_steps=max(1, num_val//batch_size),
             epochs=100,
             initial_epoch=50,
-            callbacks=[logging, checkpoint, reduce_lr, early_stopping])
+            callbacks=[logging, checkpoint, reduce_lr, early_stopping ,  meanAP])
         model.save_weights(log_dir + 'distillation_loss_trained_weights_final.h5')
-
+    
 # Further training if needed.
 
 
@@ -207,6 +215,8 @@ def create_tiny_model(input_shape, anchors, num_classes, load_pretrained=True, f
 
 def data_generator(annotation_lines, batch_size, input_shape, anchors, num_classes,teacher):
     '''data generator for fit_generator'''
+
+
     n = len(annotation_lines)
     i = 0
     while True:
@@ -224,20 +234,35 @@ def data_generator(annotation_lines, batch_size, input_shape, anchors, num_class
         y_true = preprocess_true_boxes(box_data, input_shape, anchors, num_classes)
         m_true = teacher.predict(image_data)
         l_true = y_true
-
-        for l in range( len(m_true) ) : 
-            #print(l)
-            m_true[l][...,:2] = sigmoid(m_true[l][...,:2]) 
-            m_true[l][..., 2:4] = np.exp(m_true[l][..., 2:4])
-            m_true[l][..., 4] = sigmoid(m_true[l][..., 4])
-            m_true[l][..., 5:] = sigmoid(m_true[l][..., 5:])
-            #print("inside")
-            box = np.where(y_true[l][:,:,:,:,4] > 0.3 )
-            for i in range(len(box[0])  ):
-                s = np.array(box)
-                l_true[l][s[0,i],s[1,i],s[2,i],s[3,i]] = m_true[l][s[0,i],s[1,i],s[2,i],s[3,i]]
         
+        print(len(y_true))
+        print(len(m_true))
+        print(len(l_true))
+        for l in range( len(m_true) ) : 
+            pred_output = tf.Variable(m_true[l]) 
+            anchor_mask = [[6,7,8], [3,4,5], [0,1,2]] if len(m_true)==3 else [[3,4,5], [1,2,3]] 
+            pred_xy, pred_wh , pred_conf , pred_class = yolo_head( pred_output ,anchors[anchor_mask[l]], num_classes, input_shape, calc_loss=False)
+            pred_model = K.concatenate([pred_xy, pred_wh, pred_conf ,pred_class  ])
 
+            with tf.Session() as sess:
+                    init = tf.global_variables_initializer()
+                    sess.run(init)
+                    
+                    pred_model = pred_model.eval()
+                   
+            #print(l)
+            #m_true[l][...,:2] = sigmoid(m_true[l][...,:2]) 
+            #m_true[l][..., 2:4] = np.exp(m_true[l][..., 2:4])
+            #m_true[l][..., 4] = sigmoid(m_true[l][..., 4])
+            #m_true[l][..., 5:] = sigmoid(m_true[l][..., 5:])
+            #print("inside")
+            box = np.where(y_true[l][...,4] > 0.5 )
+            box = np.transpose(box)
+
+            for i in range(len(box)):
+                l_true[l][tuple(box[i])] = pred_model[tuple(box[i])]
+        
+        
         yield [image_data, *y_true , *l_true ], np.zeros(batch_size)
 
 def data_generator_wrapper(annotation_lines, batch_size, input_shape, anchors, num_classes,teacher):

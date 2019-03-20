@@ -7,6 +7,8 @@ import json
 from model.eval_voc import parse_voc_annotation
 from model.eval_gen import BatchGenerator
 from model.eval_utils import normalize, evaluate
+import tensorflow as tf
+from tensorflow import keras
 from keras.callbacks import EarlyStopping, ModelCheckpoint
 from keras.optimizers import Adam
 from keras.models import load_model
