@@ -2,11 +2,10 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 import keras.backend as K
-from keras.layers import Input, Lambda
+from keras.layers import Input, Reshape
 from keras.models import Model
 from keras.callbacks import Callback
 import tensorflow as tf
-from model.core import preprocess_true_boxes, yolo_loss, yolo_head,box_iou
 from model.mobilenet import yolo_body
 from model.yolo3 import tiny_yolo_body
 from model.utils  import get_random_data
@@ -44,6 +43,8 @@ class AveragePrecision(Callback):
                 #print( true_label[1].shape )
                 #print( true_label[2].shape )
 
+                anchor_mask = [[6,7,8], [3,4,5], [0,1,2]] if self.num_layers==3 else [[3,4,5], [1,2,3]]
+                
                 scale_map = []
                 for lyr in range(self.num_layers):
                     #print(self.num_layers)
@@ -56,33 +57,30 @@ class AveragePrecision(Callback):
                     #print(box)
                     #print("box" + str( len(box) ) ) 
                     if( len(box) > 0 ):
-                        testmodel =  Model(  self.model.layers[0].input ,  self.model.layers[-7+lyr].output  )
+                        
+                        s = true_label[lyr].shape[1]
+                        layer_name = "conv2d_output_" + str ( s )
+                        num_anchors = 3
+                        endlayer = Reshape( (s, s, num_anchors, self.num_classes+5 ) )( self.model.get_layer(layer_name).output )
+                        testmodel =  Model(  self.model.layers[0].input ,  endlayer  )
                         pred_output= testmodel.predict( image_data )
                         #print(pred_output.shape)
                         
-                        pred_output = tf.Variable(pred_output) 
-                        image_input = Input(self.input_shape)
-                        anchor_mask = [[6,7,8], [3,4,5], [0,1,2]] if self.num_layers==3 else [[3,4,5], [1,2,3]]
 
-                        pred_xy, pred_wh , pred_conf , pred_class = yolo_head( pred_output ,self.anchors[anchor_mask[lyr]], self.num_classes, self.input_shape, calc_loss=False)
-                        pred_box = K.concatenate([pred_xy, pred_wh])
+                        pred_xy, pred_wh , pred_conf , pred_class = numpy_yolo_head( pred_output ,self.anchors[anchor_mask[lyr]], self.input_shape )
+                        pred_box = np.concatenate([pred_xy, pred_wh],axis=-1)
                         
+                        #print(pred_box.shape)
+
+
                         object_mask = arrp[..., 4:5]
-                        object_mask_bool = K.cast(object_mask, 'bool')
-                        true_box = tf.boolean_mask(arrp[0,...,0:4], object_mask_bool[0,...,0])
-                        iou = box_iou(pred_box, true_box)
-                        best_iou = K.max(iou, axis=-1)
+                        object_mask_bool = np.array(object_mask , dtype=bool)
+                        true_box = arrp[0,...,0:4][ object_mask_bool[0,...,0] ]
+                        #print(true_box.shape)
+                        iou = numpy_box_iou(pred_box, true_box)
+                        best_iou = np.max(iou, axis=-1)
                         
-                        #convert tf variable to real varable
-                        with tf.Session() as sess:
-                            init = tf.global_variables_initializer()
-                            sess.run(init)
-                            
-                            pred_box = pred_box.eval()
-                            pred_conf = pred_conf.eval()
-                            pred_class = pred_class.eval()
-                            best_iou = best_iou.eval()
-                        
+
                         iou_thres = 0.5
                         conf_thres = 0.5
                         false_positives = np.zeros((0,))
@@ -139,11 +137,64 @@ class AveragePrecision(Callback):
                 batch_map.append( np.mean(scale_map) )
 
             #print("batch")
-            print(np.mean(batch_map))
+            print("mAP : " + str( np.mean(batch_map) ) )
 
-                    
-                                                    
+def sigmoid(x):
+        """sigmoid.
 
+        # Arguments
+            x: Tensor.
+
+        # Returns
+            numpy ndarray.
+        """
+        return 1 / (1 + np.exp(-x))
+
+def numpy_box_iou(b1, b2):
+    # Expand dim to apply broadcasting.
+    b1 = np.expand_dims(b1, -2)
+    b1_xy = b1[..., :2]
+    b1_wh = b1[..., 2:4]
+    b1_wh_half = b1_wh/2.
+    b1_mins = b1_xy - b1_wh_half
+    b1_maxes = b1_xy + b1_wh_half
+
+    # Expand dim to apply broadcasting.
+    b2 = np.expand_dims(b2, 0)
+    b2_xy = b2[..., :2]
+    b2_wh = b2[..., 2:4]
+    b2_wh_half = b2_wh/2.
+    b2_mins = b2_xy - b2_wh_half
+    b2_maxes = b2_xy + b2_wh_half
+
+    intersect_mins = np.maximum(b1_mins, b2_mins)
+    intersect_maxes = np.minimum(b1_maxes, b2_maxes)
+    intersect_wh = np.maximum(intersect_maxes - intersect_mins, 0.)
+    intersect_area = intersect_wh[..., 0] * intersect_wh[..., 1]
+    b1_area = b1_wh[..., 0] * b1_wh[..., 1]
+    b2_area = b2_wh[..., 0] * b2_wh[..., 1]
+    iou = intersect_area / (b1_area + b2_area - intersect_area)
+
+    return iou
+
+def numpy_yolo_head( pred_raw , anchors_m , input_shape ):                                                    
+    anchors_tensor = np.reshape( anchors_m , [1, 1, 1, len( anchors_m ) , 2] )
+
+    grid_shape = pred_raw.shape[1:3] # height, width
+    grid_shape
+    grid_y = np.tile(np.reshape(np.arange(0, stop=grid_shape[0]), [-1, 1, 1, 1]),
+        [1, grid_shape[1], 1, 1])
+    grid_x = np.tile(np.reshape(np.arange(0, stop=grid_shape[1]), [1, -1, 1, 1]),
+        [grid_shape[0], 1, 1, 1])
+    grid = np.concatenate([grid_x, grid_y],axis=-1)
+
+    #print(l)
+    pred_xy = (sigmoid(pred_raw [...,:2]) + grid ) / np.array( grid_shape[::-1] )
+    pred_wh = np.exp(pred_raw [..., 2:4]) * anchors_tensor  / np.array( input_shape[::-1] )
+    pred_conf = sigmoid(pred_raw[..., 4])
+    pred_class = sigmoid(pred_raw[..., 5:])
+
+    return pred_xy, pred_wh , pred_conf , pred_class
 
 def compute_ap(recall, precision):
     """ Compute the average precision, given the recall and precision curves.

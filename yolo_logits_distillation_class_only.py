@@ -15,6 +15,7 @@ from model.core import preprocess_true_boxes, yolo_loss
 from model.mobilenet import mobilenetv2_yolo_body
 from model.yolo3 import yolo_body, tiny_yolo_body
 from model.utils  import get_random_data
+from model.evaluation import AveragePrecision
 
 import argparse
 
@@ -85,6 +86,9 @@ def _main():
             'yolo_loss': lambda y_true, y_pred: y_pred})
 
         batch_size = 2#16#32
+
+        meanAP = AveragePrecision(data_generator_wrapper(val_lines, 1 , input_shape, anchors, num_classes ,teacher ) ,batch_size, input_shape , len(anchors)//3 , anchors ,num_classes)
+
         print('Train on {} samples, val on {} samples, with batch size {}.'.format(num_train, num_val, batch_size))
         model.fit_generator(data_generator_wrapper(train_lines, batch_size, input_shape, anchors, num_classes,teacher),
                 steps_per_epoch=max(1, num_train//batch_size),
@@ -92,7 +96,7 @@ def _main():
                 validation_steps=max(1, num_val//batch_size),
                 epochs=50,
                 initial_epoch=0,
-                callbacks=[logging, checkpoint])
+                callbacks=[logging, checkpoint,meanAP])
         model.save_weights(log_dir + 'class_only_distillation_mobilenet_trained_weights_stage_1.h5')
 
     # Unfreeze and continue training, to fine-tune.
@@ -104,6 +108,8 @@ def _main():
         print('Unfreeze all of the layers.')
 
         batch_size =  2#16#32 note that more GPU memory is required after unfreezing the body
+        meanAP = AveragePrecision(data_generator_wrapper(val_lines, 1 , input_shape, anchors, num_classes ,teacher ) ,batch_size, input_shape , len(anchors)//3 , anchors ,num_classes)
+
         print('Train on {} samples, val on {} samples, with batch size {}.'.format(num_train, num_val, batch_size))
         model.fit_generator(data_generator_wrapper(train_lines, batch_size, input_shape, anchors, num_classes,teacher),
             steps_per_epoch=max(1, num_train//batch_size),
@@ -111,7 +117,7 @@ def _main():
             validation_steps=max(1, num_val//batch_size),
             epochs=100,
             initial_epoch=50,
-            callbacks=[logging, checkpoint, reduce_lr, early_stopping])
+            callbacks=[logging, checkpoint, reduce_lr, early_stopping , meanAP])
         model.save_weights(log_dir + 'class_only_distillation_mobilenet_trained_weights_final.h5')
 
 # Further training if needed.
@@ -164,6 +170,9 @@ def create_model(input_shape, anchors, num_classes, load_pretrained=True, freeze
             num = (185, len(model_body.layers)-3)[freeze_body-1]
             for i in range(num): model_body.layers[i].trainable = False
             print('Freeze the first {} layers of total {} layers.'.format(num, len(model_body.layers)))
+
+    for y in range(-3, 0):
+        model_body.layers[y].name = "conv2d_output_" + str(h//{-3:32, -2:16, -1:8}[y])
 
     model_loss = Lambda(yolo_loss, output_shape=(1,), name='yolo_loss',
         arguments={'anchors': anchors, 'num_classes': num_classes, 'ignore_thresh': 0.5})(
@@ -221,17 +230,30 @@ def data_generator(annotation_lines, batch_size, input_shape, anchors, num_class
         y_true = preprocess_true_boxes(box_data, input_shape, anchors, num_classes)
         m_true = teacher.predict(image_data)
         
+        anchor_mask = [[6,7,8], [3,4,5], [0,1,2]] if len(m_true)==3 else [[3,4,5], [1,2,3]] 
+
         for l in range( len(m_true) ) : 
+            anchors_tensor = np.reshape( anchors[anchor_mask[l]] , [1, 1, 1, len( anchors[anchor_mask[l]] ) , 2] )
+
+            grid_shape = m_true[l].shape[1:3] # height, width
+            grid_shape
+            grid_y = np.tile(np.reshape(np.arange(0, stop=grid_shape[0]), [-1, 1, 1, 1]),
+                [1, grid_shape[1], 1, 1])
+            grid_x = np.tile(np.reshape(np.arange(0, stop=grid_shape[1]), [1, -1, 1, 1]),
+                [grid_shape[0], 1, 1, 1])
+            grid = np.concatenate([grid_x, grid_y],axis=-1)
+
             #print(l)
-            #m_true[l][...,:2] = sigmoid(m_true[l][...,:2]) 
-            #m_true[l][..., 2:4] = np.exp(m_true[l][..., 2:4])
+            #m_true[l][...,:2] = (sigmoid(m_true[l][...,:2]) + grid ) / np.array( grid_shape[::-1] )
+            #m_true[l][..., 2:4] = np.exp(m_true[l][..., 2:4]) * anchors_tensor  / np.array( input_shape[::-1] )
             #m_true[l][..., 4] = sigmoid(m_true[l][..., 4])
             m_true[l][..., 5:] = sigmoid(m_true[l][..., 5:])
+
             #print("inside")
-            box = np.where(y_true[l][:,:,:,:,4] > 0.3 )
-            for i in range(len(box[0])  ):
-                s = np.array(box)
-                y_true[l][s[0,i],s[1,i],s[2,i],s[3,i],5:] = m_true[l][s[0,i],s[1,i],s[2,i],s[3,i],5:]
+            box = np.where(y_true[l][...,4] > 0.5 )
+            box = np.transpose(box)
+            for i in range(len(box)):
+                y_true[l][tuple(box[i])] = m_true[l][tuple(box[i])] 
 
         yield [image_data, *y_true], np.zeros(batch_size)
 
