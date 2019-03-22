@@ -100,7 +100,7 @@ def yolo_distill_loss(args, anchors, num_classes, ignore_thresh=.5, print_loss=F
         # K.binary_crossentropy is helpful to avoid exp overflow.
         xy_loss , wh_loss , confidence_loss , class_loss = lossbox(object_mask,box_loss_scale,raw_true_xy,raw_pred,raw_true_wh,ignore_mask,true_class_probs,mf)
         
-        loss += xy_loss + wh_loss + confidence_loss + class_loss
+        loss += (xy_loss + wh_loss + confidence_loss + class_loss)/2
         
         #########################################################################
         
@@ -118,7 +118,8 @@ def yolo_distill_loss(args, anchors, num_classes, ignore_thresh=.5, print_loss=F
         xy_loss , wh_loss , confidence_loss , class_loss = lossbox(object_mask,box_loss_scale,raw_true_xy,raw_pred,raw_true_wh,ignore_mask,true_class_probs,mf)
         
         #student
-        loss += (xy_loss + wh_loss + confidence_loss + class_loss)*-1
+        #loss += (xy_loss + wh_loss + confidence_loss + class_loss)*1
+        loss += (xy_loss + wh_loss + confidence_loss + class_loss)/2
         if print_loss:
             loss = tf.Print(loss, [loss, xy_loss, wh_loss, confidence_loss, class_loss, K.sum(ignore_mask)], message=' loss: ')
     return loss

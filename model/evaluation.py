@@ -27,6 +27,7 @@ class AveragePrecision(Callback):
             #print( self.caller("b") )
             #print( self.batch_size )
         
+        #this code only evaluate label that appear in the image not all label
         def on_epoch_end(self, epoch, logs={}):
             #self.losses.append(logs.get('loss'))
             #print(   K.shape( self.model.input[0] )[0]  )
@@ -72,7 +73,9 @@ class AveragePrecision(Callback):
                         
                         #print(pred_box.shape)
 
+                        #### Measure AP #########################################
 
+                        #measure iou
                         object_mask = arrp[..., 4:5]
                         object_mask_bool = np.array(object_mask , dtype=bool)
                         true_box = arrp[0,...,0:4][ object_mask_bool[0,...,0] ]
@@ -88,18 +91,6 @@ class AveragePrecision(Callback):
                         scores          = np.zeros((0,))
 
                         for i in range(len(box)):
-                            #print("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
-                            #print( "({})".format(box[i]) )
-                            #print( arrp[tuple(box[i])][0:5] )
-                            #print( arrp[tuple(box[i])][5:25] )
-                           
-                            #print( "{} = {}".format(true_class_label  , obj[ true_class_label  ] ) )
-                            #print("-------------------------------------------------------")
-                            #print( pred_box[ tuple(box[i]) ] )
-                            #print( pred_conf[ tuple(box[i]) ] )
-                            #print( pred_class[ tuple(box[i]) ] )
-                            #print( "{} = {}".format(pred_class_label , obj[ pred_class_label  ] ) )
-                            #print("-------------------------------------------------------")
                             true_class_label =  np.argmax( arrp[tuple(box[i])][5:25]) 
                             pred_class_label =  np.argmax( pred_class[tuple(box[i])]) 
                             scores = np.append(scores, pred_conf[ tuple(box[i]) ] )
@@ -112,7 +103,7 @@ class AveragePrecision(Callback):
                                 #print("neg")
                                 false_positives = np.append(false_positives, 1)
                                 true_positives  = np.append(true_positives, 0)
-                            #print("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
+                            
 
                         indices         = np.argsort(-scores)
                         false_positives = false_positives[indices]
@@ -129,6 +120,9 @@ class AveragePrecision(Callback):
                         #print( precision )
 
                         average_precision  = compute_ap(recall, precision)
+
+                        ###########################################################################
+
                         #print(average_precision)
                         scale_map.append(average_precision)
                         

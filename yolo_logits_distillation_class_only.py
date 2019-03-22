@@ -23,7 +23,7 @@ def _main():
     train_path = '2007_train.txt'
     val_path = '2007_val.txt'
    # test_path = '2007_test.txt'
-    log_dir = 'logs/000/'
+    log_dir = 'logs/logits_only_class_000/'
     classes_path = 'class/voc_classes.txt'
     anchors_path = 'anchors/yolo_anchors.txt'
     class_names = get_classes(classes_path)
@@ -253,7 +253,7 @@ def data_generator(annotation_lines, batch_size, input_shape, anchors, num_class
             box = np.where(y_true[l][...,4] > 0.5 )
             box = np.transpose(box)
             for i in range(len(box)):
-                y_true[l][tuple(box[i])] = m_true[l][tuple(box[i])] 
+                y_true[l][tuple(box[i])][..., 5:] = m_true[l][tuple(box[i])][..., 5:] 
 
         yield [image_data, *y_true], np.zeros(batch_size)
 

@@ -269,7 +269,7 @@ def data_generator(annotation_lines, batch_size, input_shape, anchors, num_class
          
         h, w = input_shape
         num_anchors = len(anchors)
-        l_true = [Input(shape=(h//{0:32, 1:16, 2:8}[l], w//{0:32, 1:16, 2:8}[l], num_anchors//3, num_classes+5)) for l in range(3)]
+        
         l_true =  [ np.zeros( shape=( batch_size ,416//{0:32, 1:16, 2:8}[l], 416//{0:32, 1:16, 2:8}[l], 9//3, 20+5) ) for l in range(3) ]
 
         #print(len(y_true))
