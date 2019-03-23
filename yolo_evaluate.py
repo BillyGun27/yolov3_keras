@@ -76,7 +76,7 @@ def _main():
     
     
     print( "{} test data".format(num_test) )
-    for n in tqdm( range(10) ):#num_test
+    for n in tqdm( range(num_test) ):#num_test
         img,flogits,mlogits = next(datagen)
 
         for l in range(num_layers):
@@ -87,24 +87,81 @@ def _main():
 
             for i in range(len(box)):
                 #print("obj" + str(i) )
-                detection_label =  np.argmax( flogits[l][tuple(box[i])][5:]) 
-                annotation_label =  np.argmax( mlogits[l][tuple(box[i])][5:]) 
+                #detection_label =  np.argmax( flogits[l][tuple(box[i])][5:]) 
+                annotation_label =  np.argmax( flogits[l][tuple(box[i])][5:]) 
 
                 #print( "{} ({}) {} == ({}) {} ".format(l, detection_label, class_names[  detection_label ] ,annotation_label, class_names[  annotation_label ] ) )
                 
-                all_detections[detection_label].append( flogits[l][tuple(box[i])] ) 
-                all_annotations[annotation_label].append( mlogits[l][tuple(box[i])] )
+                all_detections[annotation_label].append( mlogits[l][tuple(box[i])] ) 
+                all_annotations[annotation_label].append( flogits[l][tuple(box[i])] )
 
-                count_detections[l][detection_label] +=1
+                count_detections[l][annotation_label] +=1
     
-        
-
-
 
     print(len(all_detections) )
     print(len(all_annotations) )
     print(count_detections)
 
+    iou_thres = 0.5
+    conf_thres = 0.5
+    
+    average_precisions = {}
+
+    for label in tqdm( range( num_classes ) ) : 
+        
+        false_positives = np.zeros((0,))
+        true_positives  = np.zeros((0,))
+        scores          = np.zeros((0,))
+
+        
+        num_detect = len( all_detections[label] )
+        for det in  range( num_detect ):
+
+            detect_box = all_detections[label][det][...,0:4]
+            detect_conf = all_detections[label][det][...,4]
+            detect_label =  np.argmax( all_detections[label][det][...,5:] ) 
+
+            annot_box = all_annotations[label][det][...,0:4]
+            annot_conf = all_annotations[label][det][...,4]
+            detect_label =  np.argmax( all_detections[label][det][...,5:] ) 
+            
+            iou = numpy_box_iou( detect_box , annot_box)
+
+            scores = np.append(scores, detect_conf )
+
+        
+            if( iou > iou_thres and  detect_conf > conf_thres and (label == detect_label ) ):
+                #print( best_iou[tuple(box[i])] )
+                print("pos")
+                false_positives = np.append(false_positives, 0)
+                true_positives   = np.append(true_positives, 1)
+            else:
+                print("neg")
+                false_positives = np.append(false_positives, 1)
+                true_positives  = np.append(true_positives, 0)
+                
+        indices         = np.argsort(-scores)
+        false_positives = false_positives[indices]
+        true_positives  = true_positives[indices]
+        print(true_positives)
+
+        false_positives = np.cumsum(false_positives)
+        true_positives  = np.cumsum(true_positives)
+        print(true_positives)
+
+        recall = true_positives  / num_detect
+        print( recall )
+        precision = true_positives / np.maximum(true_positives + false_positives, np.finfo(np.float64).eps)
+        print( precision )
+
+        average_precision  = compute_ap(recall, precision)
+        average_precisions[label] = average_precision
+    
+    print(average_precisions)
+
+    for label, average_precision in average_precisions.items():
+        print(class_names[label] + ': {:.4f}'.format(average_precision))
+    print('mAP: {:.4f}'.format(sum(average_precisions.values()) / len(average_precisions)))           
     '''
     for i in range(len(box)):
         print("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")

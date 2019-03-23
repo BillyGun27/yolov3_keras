@@ -94,7 +94,7 @@ class AveragePrecision(Callback):
                             true_class_label =  np.argmax( arrp[tuple(box[i])][5:25]) 
                             pred_class_label =  np.argmax( pred_class[tuple(box[i])]) 
                             scores = np.append(scores, pred_conf[ tuple(box[i]) ] )
-                            if( best_iou[tuple(box[i])] > iou_thres and  pred_conf[tuple(box[i])] > conf_thres and (true_class_label and pred_class_label ) ):
+                            if( best_iou[tuple(box[i])] > iou_thres and  pred_conf[tuple(box[i])] > conf_thres and (true_class_label == pred_class_label ) ):
                                 #print( best_iou[tuple(box[i])] )
                                 #print("pos")
                                 false_positives = np.append(false_positives, 0)
