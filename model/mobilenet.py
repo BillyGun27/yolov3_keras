@@ -104,6 +104,7 @@ def mobilenet_yolo_body(inputs, num_anchors, num_classes):
 
     return Model(inputs = inputs, outputs=[y1,y2,y3])
 
+#mobilenetv2
 def yolo_body(inputs, num_anchors, num_classes):
      #net, endpoint = inception_v2.inception_v2(inputs)
     mobilenet = MobileNetV2(input_tensor=inputs,weights='imagenet')

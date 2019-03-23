@@ -24,7 +24,7 @@ def _main():
     train_path = '2007_train.txt'
     val_path = '2007_val.txt'
     test_path = '2007_test.txt'
-    log_dir = 'logs/logits_only_000/'
+    #log_dir = 'logs/logits_only_000/'
     classes_path = 'class/voc_classes.txt'
     anchors_path = 'anchors/yolo_anchors.txt'
     class_names = get_classes(classes_path)
