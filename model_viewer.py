@@ -9,10 +9,10 @@ from keras.callbacks import TensorBoard, ModelCheckpoint, ReduceLROnPlateau, Ear
 
 from model.core import preprocess_true_boxes, yolo_loss
 from model.mobilenet import mobilenetv2_yolo_body
-from model.yolo3 import yolo_body, tiny_yolo_body
 from model.utils  import get_random_data
 from keras.utils.vis_utils import plot_model as plot
 from model.squeezenet import squeezenet_body,squeezenet_yolo_body
+from model.tiny_darknet import tiny_darknet_body,darknet_body
 
 def get_classes(classes_path):
     '''loads the classes'''
@@ -49,9 +49,22 @@ num_anchors = len(anchors)
 #model = mobilenetv2_yolo_body(image_input, num_anchors//3, num_classes)
 #plot(model, to_file='{}.png'.format("mobilenetv2_yolo"), show_shapes=True)
 
-#squeezenet_model = squeezenet_body( input_tensor = image_input )
-#squeezenet_model.summary()
-squeezenet_model = squeezenet_yolo_body(image_input, num_anchors//3, num_classes)
-plot(squeezenet_model , to_file='{}.png'.format("squeezenet_yolo"), show_shapes=True)
+squeezenet_model = squeezenet_body( input_tensor = image_input )
+squeezenet_model.summary()
+#squeezenet_model = squeezenet_yolo_body(image_input, num_anchors//3, num_classes)
+#plot(squeezenet_model , to_file='{}.png'.format("squeezenet_yolo"), show_shapes=True)
+#squeezenet_model.save_weights('empty_squeezenet.h5')
 
+
+#tiny_model = tiny_darknet_yolo_body(image_input, num_anchors//3, num_classes)
+#tiny_model.summary()
+
+#darknet = Model( image_input , darknet_body(image_input ))
+#plot(darknet , to_file='{}.png'.format("darknet_body"), show_shapes=True)
+#darknet.save_weights('empty_darknet.h5')
+
+#tiny_darknet = Model( image_input , tiny_darknet_body(image_input ))
+#plot(tiny_darknet , to_file='{}.png'.format("tiny_darknet_body"), show_shapes=True)
+#tiny_darknet.summary()
+#tiny_darknet.save_weights('empty_tiny_darknet.h5')
 

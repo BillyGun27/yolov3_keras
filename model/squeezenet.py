@@ -17,7 +17,7 @@ from keras.utils.data_utils import get_file
 #TF_WEIGHTS_PATH_NO_TOP = 'https://github.com/wohlert/keras-squeezenet/raw/master/squeezenet_weights.h5'
 
 # a building block of the SqueezeNet architecture
-def fire_module(number, x, squeeze, expand, weight_decay=None, trainable=False):
+def fire_module(number, x, squeeze, expand, weight_decay=None, trainable=True):
     
     module_name = 'fire' + number
     
@@ -61,7 +61,7 @@ def squeezenet_body(weight_decay=1e-4, input_tensor=Input(shape=(416, 416, 3))):
 
     x = Convolution2D(
         64, (3, 3), strides=(2, 2), name='conv1', 
-        trainable=False
+        trainable=True
     )(x) # 111, 111, 64
     
     x = Activation('relu')(x)

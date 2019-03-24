@@ -75,7 +75,7 @@ def _main():
                 epochs=50,
                 initial_epoch=0,
                 callbacks=[logging, checkpoint , meanAP ])
-        model.save_weights(log_dir + 'trained_weights_stage_1_mobilenetv2.h5')
+        model.save_weights(log_dir + 'trained_weights_stage_1_squeezenet.h5')
 
     # Unfreeze and continue training, to fine-tune.
     # Train longer if the result is not good.
@@ -85,7 +85,7 @@ def _main():
         model.compile(optimizer=Adam(lr=1e-4), loss={'yolo_loss': lambda y_true, y_pred: y_pred}) # recompile to apply the change
         print('Unfreeze all of the layers.')
 
-        batch_size =  8#32 note that more GPU memory is required after unfreezing the body
+        batch_size =  16#32 note that more GPU memory is required after unfreezing the body
 
         meanAP = AveragePrecision(data_generator_wrapper(val_lines, 1 , input_shape, anchors, num_classes) ,batch_size, input_shape , len(anchors)//3 , anchors ,num_classes)
         
@@ -97,7 +97,7 @@ def _main():
             epochs=100,
             initial_epoch=50,
             callbacks=[logging, checkpoint, reduce_lr, early_stopping , meanAP])
-        model.save_weights(log_dir + 'trained_weights_final_mobilenetv2.h5')
+        model.save_weights(log_dir + 'trained_weights_final_squeezenet.h5')
 
 
 def get_classes(classes_path):
@@ -137,6 +137,9 @@ def create_model(input_shape, anchors, num_classes, load_pretrained=True, freeze
             num = (185, len(model_body.layers)-3)[freeze_body-1]
             for i in range(num): model_body.layers[i].trainable = False
             print('Freeze the first {} layers of total {} layers.'.format(num, len(model_body.layers)))
+
+    for y in range(-3, 0):
+        model_body.layers[y].name = "conv2d_output_" + str(h//{-3:32, -2:16, -1:8}[y])
 
     model_loss = Lambda(yolo_loss, output_shape=(1,), name='yolo_loss',
         arguments={'anchors': anchors, 'num_classes': num_classes, 'ignore_thresh': 0.5})(
