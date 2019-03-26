@@ -23,12 +23,12 @@ from keras.utils import multi_gpu_model
 
 class YOLO(object):
     _defaults = {
-        "model_path": 'model_data/trained_weights_final.h5',#yolo.h5
+        "model_path": 'model_data/trained_weights_final.h5',#yolo.h5,trained_weights_final.h5
         "anchors_path": 'anchors/yolo_anchors.txt',#yolo_anchors.txt
-        "classes_path": 'class/voc_classes.txt',#coco_classes.txt
+        "classes_path": 'class/voc_classes.txt',#voc_classes.txt,coco_classes.txt
         "score" : 0.3,
         "iou" : 0.45,
-        "model_image_size" : (416 , 416),#416,288,128 32multiplier
+        "model_image_size" : (416 , 416),#416,288,224 ,128 32multiplier
         "gpu_num" : 1,
     }
 
@@ -147,7 +147,7 @@ class YOLO(object):
             left = max(0, np.floor(left + 0.5).astype('int32'))
             bottom = min(image.size[1], np.floor(bottom + 0.5).astype('int32'))
             right = min(image.size[0], np.floor(right + 0.5).astype('int32'))
-            print(label, (left, top), (right, bottom))
+            print(label, (left, top), (right, bottom), ( (right-left) ,(bottom-top) ) )
 
             if top - label_size[1] >= 0:
                 text_origin = np.array([left, top - label_size[1]])

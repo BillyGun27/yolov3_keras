@@ -64,6 +64,9 @@ def _main():
             'yolo_loss': lambda y_true, y_pred: y_pred})
 
         batch_size = 16#32
+
+        meanAP = AveragePrecision(data_generator_wrapper(val_lines, 1 , input_shape, anchors, num_classes) ,num_val, input_shape , len(anchors)//3 , anchors ,num_classes)
+
         print('Train on {} samples, val on {} samples, with batch size {}.'.format(num_train, num_val, batch_size))
         model.fit_generator(data_generator_wrapper(train_lines, batch_size, input_shape, anchors, num_classes),
                 steps_per_epoch=max(1, num_train//batch_size),
@@ -83,6 +86,9 @@ def _main():
         print('Unfreeze all of the layers.')
 
         batch_size =  16#32 note that more GPU memory is required after unfreezing the body
+
+        meanAP = AveragePrecision(data_generator_wrapper(val_lines, 1 , input_shape, anchors, num_classes) ,num_val, input_shape , len(anchors)//3 , anchors ,num_classes)
+
         print('Train on {} samples, val on {} samples, with batch size {}.'.format(num_train, num_val, batch_size))
         model.fit_generator(data_generator_wrapper(train_lines, batch_size, input_shape, anchors, num_classes),
             steps_per_epoch=max(1, num_train//batch_size),

@@ -10,9 +10,9 @@ from keras.layers import Input, Convolution2D, MaxPooling2D
 from keras.layers import Activation, Dropout, GlobalAveragePooling2D, concatenate,Conv2D, Add, ZeroPadding2D, UpSampling2D, Concatenate, MaxPooling2D
 from keras.initializers import RandomNormal
 from keras.regularizers import l2
-from model.darknet_layer import DarknetConv2D,DarknetConv2D_BN_Leaky,resblock_body,make_last_layers
+from model.yolo_layer import DarknetConv2D,DarknetConv2D_BN_Leaky, make_last_layers
 from model.utils import compose
-from keras.utils.data_utils import get_file
+#from keras.utils.data_utils import get_file
 
 #TF_WEIGHTS_PATH_NO_TOP = 'https://github.com/wohlert/keras-squeezenet/raw/master/squeezenet_weights.h5'
 

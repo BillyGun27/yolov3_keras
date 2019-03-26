@@ -16,7 +16,7 @@ from keras.layers import Input
 from PIL import Image, ImageFont, ImageDraw
 
 from model.core import yolo_eval
-from model.mobilenet import yolo_body
+from model.small_mobilenet import yolo_body
 from model.yolo3 import tiny_yolo_body
 from model.utils import letterbox_image
 import os
@@ -24,7 +24,7 @@ from keras.utils import multi_gpu_model
 
 class YOLO(object):
     _defaults = {
-        "model_path": "model_data/distillation_logits_trained_weights_final.h5",#'model_data/trained_weights_final_mobilenetv2.h5',#yolo.h5
+        "model_path": 'model_data/trained_weights_final_small_mobilenet.h5',#"model_data/trained_weights_final_mobilenetv2.h5",'model_data/trained_weights_final_mobilenetv2.h5',#yolo.h5
         "anchors_path": 'anchors/yolo_anchors.txt',#yolo_anchors.txt
         "classes_path": 'class/voc_classes.txt',#coco_classes.txt
         "score" : 0.3,
@@ -148,7 +148,7 @@ class YOLO(object):
             left = max(0, np.floor(left + 0.5).astype('int32'))
             bottom = min(image.size[1], np.floor(bottom + 0.5).astype('int32'))
             right = min(image.size[0], np.floor(right + 0.5).astype('int32'))
-            print(label, (left, top), (right, bottom))
+            print(label, (left, top), (right, bottom), ( (right-left) ,(bottom-top) ) )
 
             if top - label_size[1] >= 0:
                 text_origin = np.array([left, top - label_size[1]])
