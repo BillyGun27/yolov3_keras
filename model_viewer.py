@@ -55,7 +55,6 @@ num_anchors = len(anchors)
 #mobilenet_model.summary()
 #mobilenet_model.save_weights('empty_mobilenet.h5')
 
-<<<<<<< HEAD
 #mobilenetv2_model = MobileNetV2(input_tensor=image_input,weights='imagenet')
 #mobilenetv2_model = mobilenetv2_yolo_body(image_input, num_anchors//3, num_classes)
 #plot(model, to_file='{}.png'.format("mobilenet_yolo"), show_shapes=True)
@@ -63,7 +62,6 @@ num_anchors = len(anchors)
 #mobilenetv2_model.save_weights('empty_mobilenetv2.h5')
 
 #squeezenet_model = squeezenet_body( input_tensor = image_input )
-=======
 mobilenetv2 = mobilenetv2_yolo_body(image_input, num_anchors//3, num_classes)
 mobilenetv2.summary()
 mobilenetv2.save_weights('empty_mobilenet.h5')
@@ -71,7 +69,6 @@ plot(mobilenetv2, to_file='{}.png'.format("mobilenetv2_yolo"), show_shapes=True)
 
 #squeezenet_model = squeezenet_body( input_tensor = image_input )
 #squeezenet_model.summary()
->>>>>>> 7762d922d53f77fb0da639b9f9434d15627e3608
 #squeezenet_model = squeezenet_yolo_body(image_input, num_anchors//3, num_classes)
 #plot(squeezenet_model , to_file='{}.png'.format("squeezenet_yolo"), show_shapes=True)
 #squeezenet_model.summary()

@@ -118,7 +118,7 @@ def _main():
     
         batch_size = 16#32
 
-        meanAP = AveragePrecision(data_generator_wrapper(val_lines, 1 , input_shape, anchors, num_classes ,teacher ) ,num_val,, input_shape , len(anchors)//3 , anchors ,num_classes)
+        meanAP = AveragePrecision(data_generator_wrapper(val_lines, 1 , input_shape, anchors, num_classes ,teacher ) ,200 , input_shape , len(anchors)//3 , anchors ,num_classes)
 
         print('Train on {} samples, val on {} samples, with batch size {}.'.format(num_train, num_val, batch_size))
         model.fit_generator(data_generator_wrapper(train_lines, batch_size, input_shape, anchors, num_classes,teacher),
