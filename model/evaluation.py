@@ -12,10 +12,10 @@ from model.utils  import get_random_data
 
 
 class AveragePrecision(Callback):
-        def __init__(self, val_data ,batch_size,input_shape,num_layers,anchors,num_classes):
+        def __init__(self, val_data ,total_image,input_shape,num_layers,anchors,num_classes):
             super().__init__()
             self.validation_data = val_data
-            self.batch_size = batch_size
+            self.total_image = total_image
             self.input_shape = input_shape
             self.num_layers = num_layers
             self.anchors = anchors
@@ -32,8 +32,8 @@ class AveragePrecision(Callback):
             #self.losses.append(logs.get('loss'))
             #print(   K.shape( self.model.input[0] )[0]  )
             #obj = ["aeroplane", "bicycle", "bird", "boat", "bottle", "bus", "car", "cat", "chair", "cow", "diningtable", "dog", "horse", "motorbike", "person", "pottedplant", "sheep", "sofa", "train", "tvmonitor"]
-            batch_map = []
-            for b in range(self.batch_size):
+            all_map = []
+            for b in range(self.total_image):
                 layers_map = []
                 #print("batch" + str(b) )
                 val_dat , zeros = next( self.validation_data )
@@ -128,10 +128,10 @@ class AveragePrecision(Callback):
                         
                 
                 #print(np.mean(scale_map))
-                batch_map.append( np.mean(scale_map) )
+                all_map.append( np.mean(scale_map) )
 
             #print("batch")
-            print("mAP : " + str( np.mean(batch_map) ) )
+            print("mAP : " + str( np.mean(all_map) ) )
 
 def sigmoid(x):
         """sigmoid.

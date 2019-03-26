@@ -32,3 +32,5 @@ for year, image_set in sets:
         list_file.write('\n')
     list_file.close()
 
+
+

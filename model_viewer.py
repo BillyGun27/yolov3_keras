@@ -9,6 +9,7 @@ from keras.callbacks import TensorBoard, ModelCheckpoint, ReduceLROnPlateau, Ear
 
 from model.core import preprocess_true_boxes, yolo_loss
 from model.mobilenet import mobilenetv2_yolo_body
+from model.small_mobilenet import mobilenetv2_yolo_body
 from model.utils  import get_random_data
 from keras.utils.vis_utils import plot_model as plot
 from model.squeezenet import squeezenet_body,squeezenet_yolo_body
@@ -46,11 +47,13 @@ h, w = input_shape
 num_anchors = len(anchors)
 
 
-#model = mobilenetv2_yolo_body(image_input, num_anchors//3, num_classes)
-#plot(model, to_file='{}.png'.format("mobilenetv2_yolo"), show_shapes=True)
+mobilenetv2 = mobilenetv2_yolo_body(image_input, num_anchors//3, num_classes)
+mobilenetv2.summary()
+mobilenetv2.save_weights('empty_mobilenet.h5')
+plot(mobilenetv2, to_file='{}.png'.format("mobilenetv2_yolo"), show_shapes=True)
 
-squeezenet_model = squeezenet_body( input_tensor = image_input )
-squeezenet_model.summary()
+#squeezenet_model = squeezenet_body( input_tensor = image_input )
+#squeezenet_model.summary()
 #squeezenet_model = squeezenet_yolo_body(image_input, num_anchors//3, num_classes)
 #plot(squeezenet_model , to_file='{}.png'.format("squeezenet_yolo"), show_shapes=True)
 #squeezenet_model.save_weights('empty_squeezenet.h5')

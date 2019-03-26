@@ -12,7 +12,7 @@ from keras.optimizers import Adam
 from keras.callbacks import TensorBoard, ModelCheckpoint, ReduceLROnPlateau, EarlyStopping
 
 from model.core import preprocess_true_boxes,yolo_head
-from model.distillation import yolo_distill_loss
+from model.distillation import apprentice_distill_loss
 from model.mobilenet import mobilenetv2_yolo_body
 from model.yolo3 import yolo_body, tiny_yolo_body
 from model.utils  import get_random_data
@@ -114,7 +114,7 @@ def _main():
     if True:
         model.compile(optimizer=Adam(lr=1e-3), loss={
             # use custom yolo_loss Lambda layer.
-            'yolo_distill_loss': lambda y_true, y_pred: y_pred})
+            'apprentice_distill_loss': lambda y_true, y_pred: y_pred})
     
         batch_size = 16#32
 
@@ -128,19 +128,19 @@ def _main():
                 epochs=30,
                 initial_epoch=0,
                 callbacks=[logging, checkpoint,  meanAP])
-        model.save_weights(log_dir + 'distillation_loss_trained_weights_stage_1.h5')
+        model.save_weights(log_dir + 'distillation_loss_appr_trained_weights_stage_1.h5')
 
     # Unfreeze and continue training, to fine-tune.
     # Train longer if the result is not good.
     if True:
         for i in range(len(model.layers)):
             model.layers[i].trainable = True
-        model.compile(optimizer=Adam(lr=1e-4), loss={'yolo_distill_loss': lambda y_true, y_pred: y_pred}) # recompile to apply the change
+        model.compile(optimizer=Adam(lr=1e-4), loss={'apprentice_distill_loss': lambda y_true, y_pred: y_pred}) # recompile to apply the change
         print('Unfreeze all of the layers.')
 
         batch_size =  8#32 note that more GPU memory is required after unfreezing the body
 
-        meanAP = AveragePrecision(data_generator_wrapper(val_lines, 1 , input_shape, anchors, num_classes ,teacher) ,num_val,, input_shape , len(anchors)//3 , anchors ,num_classes)
+        meanAP = AveragePrecision(data_generator_wrapper(val_lines, 1 , input_shape, anchors, num_classes ,teacher) ,num_val , input_shape , len(anchors)//3 , anchors ,num_classes)
 
         print('Train on {} samples, val on {} samples, with batch size {}.'.format(num_train, num_val, batch_size))
         model.fit_generator(data_generator_wrapper(train_lines, batch_size, input_shape, anchors, num_classes,teacher),
@@ -150,7 +150,7 @@ def _main():
             epochs=60,
             initial_epoch=30,
             callbacks=[logging, checkpoint, reduce_lr, early_stopping ,  meanAP])
-        model.save_weights(log_dir + 'distillation_loss_trained_weights_final.h5')
+        model.save_weights(log_dir + 'distillation_loss_appr_trained_weights_final.h5')
 
 # Further training if needed.
 
@@ -209,7 +209,7 @@ def create_model(input_shape, anchors, num_classes, load_pretrained=True, freeze
     for y in range(-3, 0):
         model_body.layers[y].name = "conv2d_output_" + str(h//{-3:32, -2:16, -1:8}[y])
 
-    model_loss = Lambda(yolo_distill_loss, output_shape=(1,), name='yolo_distill_loss',
+    model_loss = Lambda(apprentice_distill_loss, output_shape=(1,), name='apprentice_distill_loss',
         arguments={'anchors': anchors, 'num_classes': num_classes, 'ignore_thresh': 0.5})(
         [*model_body.output, *y_true , *l_true])
     model = Model([model_body.input, *y_true , *l_true ], model_loss)
@@ -239,7 +239,7 @@ def create_tiny_model(input_shape, anchors, num_classes, load_pretrained=True, f
             for i in range(num): model_body.layers[i].trainable = False
             print('Freeze the first {} layers of total {} layers.'.format(num, len(model_body.layers)))
 
-    model_loss = Lambda(yolo_distill_loss, output_shape=(1,), name='yolo_distill_loss',
+    model_loss = Lambda(apprentice_distill_loss, output_shape=(1,), name='apprentice_distill_loss',
         arguments={'anchors': anchors, 'num_classes': num_classes, 'ignore_thresh': 0.7})(
         [*model_body.output, *y_true, *l_true])
     model = Model([model_body.input, *y_true, *l_true], model_loss)

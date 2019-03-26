@@ -9,8 +9,6 @@ from keras.layers.advanced_activations import LeakyReLU
 from keras.layers.normalization import BatchNormalization
 from keras.models import Model
 from keras.regularizers import l2
-from keras.applications.mobilenet import MobileNet
-from keras.applications.mobilenet_v2 import MobileNetV2
 from model.core import yolo_head,box_iou
 from model.utils import compose
 
@@ -50,7 +48,7 @@ def lossbox(object_mask,box_loss_scale,raw_true_xy,raw_pred,raw_true_wh,ignore_m
     
     return xy_loss , wh_loss , confidence_loss , class_loss
         
-def yolo_distill_loss(args, anchors, num_classes, ignore_thresh=.5, print_loss=False):
+def yolo_distill_loss(args, anchors, num_classes, ignore_thresh=.5, alpha = 0.5, print_loss=False):
     '''Return yolo_loss tensor
 
     Parameters
@@ -83,6 +81,7 @@ def yolo_distill_loss(args, anchors, num_classes, ignore_thresh=.5, print_loss=F
     mf = K.cast(m, K.dtype(yolo_outputs[0]))
 
     for l in range(num_layers):
+        #teacher
         object_mask = l_true[l][..., 4:5]
         true_class_probs = l_true[l][..., 5:]
 
@@ -100,10 +99,102 @@ def yolo_distill_loss(args, anchors, num_classes, ignore_thresh=.5, print_loss=F
         # K.binary_crossentropy is helpful to avoid exp overflow.
         xy_loss , wh_loss , confidence_loss , class_loss = lossbox(object_mask,box_loss_scale,raw_true_xy,raw_pred,raw_true_wh,ignore_mask,true_class_probs,mf)
         
-        loss += (xy_loss + wh_loss + confidence_loss + class_loss)/2
+        loss += ( alpha * (xy_loss + wh_loss + confidence_loss + class_loss) )
         
         #########################################################################
+        #student
+        object_mask = y_true[l][..., 4:5]
+        true_class_probs = y_true[l][..., 5:]
+
+        grid, raw_pred, pred_xy, pred_wh = yolo_head(yolo_outputs[l],
+             anchors[anchor_mask[l]], num_classes, input_shape, calc_loss=True)
+        pred_box = K.concatenate([pred_xy, pred_wh])
         
+        # Darknet raw box to calculate loss.
+        raw_true_xy,raw_true_wh,raw_true_wh,box_loss_scale = darknet_raw(y_true[l],object_mask,grid_shapes[l],grid,input_shape,anchors,anchor_mask[l])
+
+        # Find ignore mask, iterate over each of batch.
+        ignore_mask = ignorer(y_true[l],object_mask,pred_box,ignore_thresh,m)
+ 
+
+        # K.binary_crossentropy is helpful to avoid exp overflow.
+        xy_loss , wh_loss , confidence_loss , class_loss = lossbox(object_mask,box_loss_scale,raw_true_xy,raw_pred,raw_true_wh,ignore_mask,true_class_probs,mf)
+        
+        #student
+        #loss += (xy_loss + wh_loss + confidence_loss + class_loss)*1
+        loss +=  ( (1-alpha) *(xy_loss + wh_loss + confidence_loss + class_loss) )
+        if print_loss:
+            loss = tf.Print(loss, [loss, xy_loss, wh_loss, confidence_loss, class_loss, K.sum(ignore_mask)], message=' loss: ')
+    return loss
+
+def apprentice_distill_loss(args, anchors, num_classes, ignore_thresh=.5, alpha = 1, beta = 0.5, gamma = 0.5, print_loss=False):
+    '''Return yolo_loss tensor
+
+    Parameters
+    ----------
+    yolo_outputs: list of tensor, the output of yolo_body or tiny_yolo_body
+    y_true: list of array, the output of preprocess_true_boxes
+    l_true: list of array, the output of logits
+    anchors: array, shape=(N, 2), wh
+    num_classes: integer
+    ignore_thresh: float, the iou threshold whether to ignore object confidence loss
+
+    Returns
+    -------
+    loss: tensor, shape=(1,)
+
+    '''
+    num_layers = len(anchors)//3 # default setting
+    yolo_outputs = args[:num_layers]#yolo output
+    y_true = args[num_layers:num_layers*2]
+    l_true = args[num_layers*2:]
+    anchor_mask = [[6,7,8], [3,4,5], [0,1,2]] if num_layers==3 else [[3,4,5], [1,2,3]]
+    input_shape = K.cast(K.shape(yolo_outputs[0])[1:3] * 32, K.dtype(y_true[0]))
+    grid_shapes = [K.cast(K.shape(yolo_outputs[l])[1:3], K.dtype(y_true[0])) for l in range(num_layers)]
+    
+    linput_shape = K.cast(K.shape(yolo_outputs[0])[1:3] * 32, K.dtype(l_true[0]))
+    lgrid_shapes = [K.cast(K.shape(yolo_outputs[l])[1:3], K.dtype(l_true[0])) for l in range(num_layers)]
+
+    tinput_shape = K.cast(K.shape(l_true[0])[1:3] * 32, K.dtype(y_true[0]))
+    tgrid_shapes = [K.cast(K.shape(l_true[l])[1:3], K.dtype(y_true[0])) for l in range(num_layers)]
+    
+    loss = 0
+    m = K.shape(yolo_outputs[0])[0] # batch size, tensor
+    mf = K.cast(m, K.dtype(yolo_outputs[0]))
+
+    for l in range(num_layers):
+        
+        #teacher
+        grid, raw_pred, pred_xy, pred_wh = yolo_head(l_true[l],
+             anchors[anchor_mask[l]], num_classes, tinput_shape, calc_loss=True)
+        pred_box = K.concatenate([pred_xy, pred_wh])
+        
+        #teacher
+        object_mask = y_true[l][..., 4:5]
+        true_class_probs = y_true[l][..., 5:]
+        
+        # Darknet raw box to calculate loss.
+        raw_true_xy,raw_true_wh,raw_true_wh,box_loss_scale = darknet_raw(y_true[l],object_mask,tgrid_shapes[l],grid,input_shape,anchors,anchor_mask[l])
+
+        # Find ignore mask, iterate over each of batch.
+        ignore_mask = ignorer(y_true[l],object_mask,pred_box,ignore_thresh,m)
+ 
+
+        # K.binary_crossentropy is helpful to avoid exp overflow.
+        xy_loss , wh_loss , confidence_loss , class_loss = lossbox(object_mask,box_loss_scale,raw_true_xy,raw_pred,raw_true_wh,ignore_mask,true_class_probs,mf)
+        
+        #teacher
+        #loss += (xy_loss + wh_loss + confidence_loss + class_loss)*1
+        loss += ( alpha * (xy_loss + wh_loss + confidence_loss + class_loss) )
+
+        #########################################################################################################
+
+        #student
+        grid, raw_pred, pred_xy, pred_wh = yolo_head(yolo_outputs[l],
+             anchors[anchor_mask[l]], num_classes, linput_shape, calc_loss=True)
+        pred_box = K.concatenate([pred_xy, pred_wh])
+
+        #student
         object_mask = y_true[l][..., 4:5]
         true_class_probs = y_true[l][..., 5:]
         
@@ -119,7 +210,31 @@ def yolo_distill_loss(args, anchors, num_classes, ignore_thresh=.5, print_loss=F
         
         #student
         #loss += (xy_loss + wh_loss + confidence_loss + class_loss)*1
-        loss += (xy_loss + wh_loss + confidence_loss + class_loss)/2
+        loss += ( beta * (xy_loss + wh_loss + confidence_loss + class_loss) )
+
+        #########################################################################################################
+        #apprentice
+        grid, raw_pred, pred_xy, pred_wh = yolo_head(yolo_outputs[l],
+             anchors[anchor_mask[l]], num_classes, linput_shape, calc_loss=True)
+        pred_box = K.concatenate([pred_xy, pred_wh])
+
+        #apprentice
+        object_mask = l_true[l][..., 4:5]
+        true_class_probs = l_true[l][..., 5:]
+
+        # Darknet raw box to calculate loss.
+        raw_true_xy,raw_true_wh,raw_true_wh,box_loss_scale = darknet_raw(l_true[l],object_mask,lgrid_shapes[l],grid,linput_shape,anchors,anchor_mask[l])
+
+        # Find ignore mask, iterate over each of batch.
+        ignore_mask = ignorer(l_true[l],object_mask,pred_box,ignore_thresh,m)
+ 
+
+        # K.binary_crossentropy is helpful to avoid exp overflow.
+        xy_loss , wh_loss , confidence_loss , class_loss = lossbox(object_mask,box_loss_scale,raw_true_xy,raw_pred,raw_true_wh,ignore_mask,true_class_probs,mf)
+        
+        #apprentice
+        loss += ( gamma *(xy_loss + wh_loss + confidence_loss + class_loss) )
+
         if print_loss:
             loss = tf.Print(loss, [loss, xy_loss, wh_loss, confidence_loss, class_loss, K.sum(ignore_mask)], message=' loss: ')
     return loss
